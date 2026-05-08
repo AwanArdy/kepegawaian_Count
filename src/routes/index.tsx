@@ -15,16 +15,6 @@ import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/")({
   component: Landing,
-  head: () => ({
-    meta: [
-      { title: "SIMPEG — Sistem Informasi Kepegawaian Modern" },
-      {
-        name: "description",
-        content:
-          "Otomatisasi kenaikan pangkat 4 tahunan, KGB 2 tahunan, reminder, dan approval dokumen dalam satu dashboard enterprise.",
-      },
-    ],
-  }),
 });
 
 function Landing() {
