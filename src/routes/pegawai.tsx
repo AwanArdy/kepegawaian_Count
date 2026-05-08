@@ -27,8 +27,11 @@ import {
   type Pegawai,
   getStoredPegawai,
   setStoredPegawai,
+  getStoredUsers,
+  addStoredUser,
   nextPangkat,
   nextKgb,
+  type User,
 } from "@/lib/simpeg-data";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -45,6 +48,9 @@ import {
   Award,
   Calendar,
   Wallet,
+  UserPlus,
+  Key,
+  ShieldCheck as ShieldCheckIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect } from "react";
@@ -84,8 +90,35 @@ function PegawaiPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [editingPegawai, setEditingPegawai] = useState<Pegawai | null>(null);
   const [viewingPegawai, setViewingPegawai] = useState<Pegawai | null>(null);
+  const [targetPegawai, setTargetPegawai] = useState<Pegawai | null>(null);
+
+  const [users, setUsers] = useState<Record<string, User>>(getStoredUsers());
+
+  const handleAccountCreate = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!targetPegawai) return;
+    const f = new FormData(e.currentTarget);
+    const newUser: User = {
+      id: targetPegawai.nip,
+      name: targetPegawai.nama,
+      nip: targetPegawai.nip,
+      role: "pegawai",
+      email: targetPegawai.email,
+      jabatan: targetPegawai.jabatan,
+    };
+    addStoredUser(newUser);
+    setUsers(getStoredUsers());
+    setAccountOpen(false);
+    toast.success(`Akun berhasil dibuat untuk ${targetPegawai.nama}`);
+  };
+
+  const openAccountModal = (p: Pegawai) => {
+    setTargetPegawai(p);
+    setAccountOpen(true);
+  };
 
   const [filters, setFilters] = useState({
     golongan: "all",
@@ -309,21 +342,54 @@ function PegawaiPage() {
                     <td className="px-5 py-3.5 font-mono text-xs">{p.nip}</td>
                     <td className="px-5 py-3.5 text-xs">{p.jabatan}</td>
                     <td className="px-5 py-3.5">
-                      <Badge variant="outline">{p.golongan}</Badge>
+                      <div className="flex flex-col gap-1">
+                        <Badge variant="outline">{p.golongan}</Badge>
+                        {users[p.nip] ? (
+                          <Badge className="bg-success/10 text-success border-0 text-[9px] h-4 w-fit">
+                            Akun Aktif
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-muted text-muted-foreground border-0 text-[9px] h-4 w-fit">
+                            Belum Ada Akun
+                          </Badge>
+                        )}
+                      </div>
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <div className="inline-flex gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => openViewModal(p)}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          title="Lihat Profil"
+                          onClick={() => openViewModal(p)}
+                        >
                           <Eye className="size-4" />
                         </Button>
                         {isAdmin && (
                           <>
-                            <Button size="sm" variant="ghost" onClick={() => openEditModal(p)}>
+                            {!users[p.nip] && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-primary hover:bg-primary/10"
+                                title="Buat Akun"
+                                onClick={() => openAccountModal(p)}
+                              >
+                                <UserPlus className="size-4" />
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              title="Edit Data"
+                              onClick={() => openEditModal(p)}
+                            >
                               <Pencil className="size-4" />
                             </Button>
                             <Button
                               size="sm"
                               variant="ghost"
+                              title="Hapus Pegawai"
                               className="text-destructive hover:bg-destructive/10"
                               onClick={() => handleDelete(p.id)}
                             >
@@ -566,6 +632,52 @@ function PegawaiPage() {
                 <DialogFooter className="col-span-2 mt-4">
                   <Button type="submit" className="w-full shadow-glow">
                     Simpan Perubahan
+                  </Button>
+                </DialogFooter>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Account Modal */}
+        <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <div className="size-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <ShieldCheckIcon className="size-6 text-primary" />
+              </div>
+              <DialogTitle>Buat Akun Pegawai</DialogTitle>
+              <DialogDescription>
+                Buat akun akses sistem untuk <strong>{targetPegawai?.nama}</strong>. NIP akan
+                digunakan sebagai username default.
+              </DialogDescription>
+            </DialogHeader>
+            {targetPegawai && (
+              <form onSubmit={handleAccountCreate} className="space-y-4 mt-4">
+                <div className="space-y-1.5">
+                  <Label>NIP / Username</Label>
+                  <div className="relative">
+                    <UserPlus className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <Input value={targetPegawai.nip} disabled className="pl-10" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Password Default</Label>
+                  <div className="relative">
+                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <Input value="password" disabled className="pl-10" />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Password default adalah "password". Pegawai dapat mengubahnya setelah login.
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-info/5 border border-info/10 text-[11px] text-info-foreground leading-relaxed">
+                  Dengan membuat akun ini, pegawai dapat mengakses dashboard pribadi untuk memantau
+                  progres kenaikan pangkat dan KGB secara mandiri.
+                </div>
+                <DialogFooter className="mt-6">
+                  <Button type="submit" className="w-full shadow-glow">
+                    Konfirmasi Buat Akun
                   </Button>
                 </DialogFooter>
               </form>

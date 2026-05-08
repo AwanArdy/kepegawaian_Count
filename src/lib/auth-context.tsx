@@ -1,9 +1,9 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { demoUsers, type User, type Role } from "./simpeg-data";
+import { getStoredUsers, type User, type Role } from "./simpeg-data";
 
 interface AuthCtx {
   user: User | null;
-  login: (role: Role) => void;
+  login: (role: string) => void;
   logout: () => void;
 }
 
@@ -13,16 +13,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const r = typeof window !== "undefined" ? localStorage.getItem("simpeg_role") : null;
-    if (r && demoUsers[r]) setUser(demoUsers[r]);
+    const userId = typeof window !== "undefined" ? localStorage.getItem("simpeg_user_id") : null;
+    const users = getStoredUsers();
+    if (userId && users[userId]) setUser(users[userId]);
   }, []);
 
-  const login = (role: Role) => {
-    localStorage.setItem("simpeg_role", role);
-    setUser(demoUsers[role]);
+  const login = (userId: string) => {
+    const users = getStoredUsers();
+    if (users[userId]) {
+      localStorage.setItem("simpeg_user_id", userId);
+      setUser(users[userId]);
+    }
   };
   const logout = () => {
-    localStorage.removeItem("simpeg_role");
+    localStorage.removeItem("simpeg_user_id");
     setUser(null);
   };
 

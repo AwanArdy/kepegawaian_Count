@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth-context";
 import { useState } from "react";
 import { toast } from "sonner";
-import { demoUsers, type Role } from "@/lib/simpeg-data";
+import { getStoredUsers, type Role } from "@/lib/simpeg-data";
 
 export const Route = createFileRoute("/login")({ component: Login });
 
@@ -35,21 +35,26 @@ function Login() {
 
     // Mock authentication logic
     setTimeout(() => {
-      // For demo purposes, we match NIP or predefined username
-      // admin, pegawai, pimpinan
-      const matchedRole = Object.keys(demoUsers).find(
-        (role) =>
-          demoUsers[role].nip === formData.username || role === formData.username.toLowerCase(),
-      ) as Role | undefined;
+      const users = getStoredUsers();
+      // Match by ID/Key or NIP
+      const matchedUserId = Object.keys(users).find(
+        (id) =>
+          users[id].nip === formData.username || 
+          id === formData.username.toLowerCase() || 
+          users[id].email === formData.username
+      );
 
-      if (matchedRole && formData.password.length >= 6) {
-        login(matchedRole);
-        toast.success(`Selamat datang, ${demoUsers[matchedRole].name}`);
+      const matchedUser = matchedUserId ? users[matchedUserId] : null;
+      const expectedPassword = matchedUser?.password || "password";
+
+      if (matchedUserId && formData.password === expectedPassword) {
+        login(matchedUserId);
+        toast.success(`Selamat datang, ${users[matchedUserId].name}`);
         navigate({ to: "/dashboard" });
-      } else if (!matchedRole) {
-        toast.error("User tidak ditemukan (Gunakan: admin, pegawai, atau pimpinan)");
+      } else if (!matchedUserId) {
+        toast.error("User tidak ditemukan (Gunakan NIP atau username demo)");
       } else {
-        toast.error("Password minimal 6 karakter untuk demo");
+        toast.error("Password salah. Silakan coba lagi.");
       }
       setIsLoading(false);
     }, 1000);

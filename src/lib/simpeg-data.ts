@@ -8,6 +8,7 @@ export interface User {
   email: string;
   avatar?: string;
   jabatan: string;
+  password?: string; // Optional for compatibility, will default to "password"
 }
 
 export interface Pegawai {
@@ -296,6 +297,7 @@ export const demoUsers: Record<string, User> = {
 
 // LocalStorage Helpers
 const STORAGE_KEY = "simpeg_pegawai_data";
+const USERS_KEY = "simpeg_users_data";
 
 export function getStoredPegawai(): Pegawai[] {
   if (typeof window === "undefined") return mockPegawai;
@@ -311,4 +313,36 @@ export function setStoredPegawai(data: Pegawai[]) {
   if (typeof window !== "undefined") {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   }
+}
+
+export function getStoredUsers(): Record<string, User> {
+  if (typeof window === "undefined") return demoUsers;
+  const stored = localStorage.getItem(USERS_KEY);
+  if (!stored) {
+    localStorage.setItem(USERS_KEY, JSON.stringify(demoUsers));
+    return demoUsers;
+  }
+  return JSON.parse(stored);
+}
+
+export function setStoredUsers(users: Record<string, User>) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  }
+}
+
+export function addStoredUser(user: User) {
+  const users = getStoredUsers();
+  users[user.id] = { ...user, password: "password" }; // Default password
+  setStoredUsers(users);
+}
+
+export function updateUserPassword(userId: string, newPassword: string) {
+  const users = getStoredUsers();
+  if (users[userId]) {
+    users[userId].password = newPassword;
+    setStoredUsers(users);
+    return true;
+  }
+  return false;
 }
