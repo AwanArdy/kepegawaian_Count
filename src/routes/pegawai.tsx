@@ -369,72 +369,161 @@ function PegawaiPage() {
 
         {/* Add Modal */}
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle>Tambah Pegawai</DialogTitle></DialogHeader>
-            <form onSubmit={handleAdd} className="grid grid-cols-2 gap-4 mt-4">
-              <div className="col-span-2 space-y-1.5"><Label>Nama Lengkap</Label><Input name="nama" required /></div>
-              <div><Label>NIP</Label><Input name="nip" required /></div>
-              <div>
-                <Label>Golongan</Label>
-                <Select name="golongan" required>
-                  <SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger>
-                  <SelectContent>{MASTER_GOLONGAN.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-                </Select>
+          <DialogContent className="max-w-2xl w-[95vw] md:w-full max-h-[90vh] overflow-y-auto p-0 rounded-2xl border-none shadow-2xl">
+            <DialogHeader className="p-6 pb-2">
+              <DialogTitle className="text-xl font-bold tracking-tight">Tambah Pegawai Baru</DialogTitle>
+              <DialogDescription className="text-xs">Lengkapi data dasar pegawai untuk didaftarkan ke sistem.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleAdd} className="p-6 pt-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                <div className="md:col-span-2 space-y-1.5">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Nama Lengkap</Label>
+                  <Input name="nama" placeholder="Masukkan nama lengkap dengan gelar..." required className="h-10 rounded-xl" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">NIP</Label>
+                  <Input name="nip" placeholder="19XXXXXXXXXXXXXXX" required className="h-10 rounded-xl" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Golongan</Label>
+                  <Select name="golongan" required>
+                    <SelectTrigger className="h-10 rounded-xl">
+                      <SelectValue placeholder="Pilih Golongan" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {MASTER_GOLONGAN.map((g) => (
+                        <SelectItem key={g} value={g}>{g}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="md:col-span-2 space-y-1.5">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Tanggal Masuk CPNS</Label>
+                  <Input name="tanggalMasuk" type="date" required className="h-10 rounded-xl" />
+                </div>
+                <div className="md:col-span-2 space-y-1.5">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Jabatan</Label>
+                  <Select name="jabatan" required>
+                    <SelectTrigger className="h-10 rounded-xl">
+                      <SelectValue placeholder="Pilih Jabatan" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {MASTER_JABATAN.map((j) => (
+                        <SelectItem key={j} value={j}>{j}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="md:col-span-2 space-y-1.5">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Unit Kerja</Label>
+                  <Select name="unit" required>
+                    <SelectTrigger className="h-10 rounded-xl">
+                      <SelectValue placeholder="Pilih Unit Kerja" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {MASTER_UNIT.map((u) => (
+                        <SelectItem key={u} value={u}>{u}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Telepon</Label>
+                  <Input name="phone" placeholder="08XXXXXXXXXX" required className="h-10 rounded-xl" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Email</Label>
+                  <Input name="email" type="email" placeholder="nama@sikapas.go.id" required className="h-10 rounded-xl" />
+                </div>
               </div>
-              <div className="col-span-2 space-y-1.5">
-                <Label>Tanggal Masuk CPNS</Label>
-                <Input name="tanggalMasuk" type="date" required />
-              </div>
-              <div className="col-span-2 space-y-1.5">
-                <Label>Jabatan</Label>
-                <Select name="jabatan" required>
-                  <SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger>
-                  <SelectContent>{MASTER_JABATAN.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="col-span-2 space-y-1.5">
-                <Label>Unit Kerja</Label>
-                <Select name="unit" required>
-                  <SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger>
-                  <SelectContent>{MASTER_UNIT.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div><Label>Telepon</Label><Input name="phone" required /></div>
-              <div><Label>Email</Label><Input name="email" type="email" required /></div>
-              <DialogFooter className="col-span-2 mt-4"><Button type="submit" className="w-full">Simpan Data</Button></DialogFooter>
+              <DialogFooter className="mt-8 gap-3 sm:gap-0">
+                <Button type="button" variant="ghost" onClick={() => setAddOpen(false)} className="rounded-xl h-11">Batal</Button>
+                <Button type="submit" className="w-full md:w-auto h-11 px-8 rounded-xl shadow-glow font-bold">Simpan Data Pegawai</Button>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
 
         {/* Edit Modal */}
         <Dialog open={editOpen} onOpenChange={setEditOpen}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle>Edit Data Pegawai</DialogTitle></DialogHeader>
+          <DialogContent className="max-w-2xl w-[95vw] md:w-full max-h-[90vh] overflow-y-auto p-0 rounded-2xl border-none shadow-2xl">
+            <DialogHeader className="p-6 pb-2">
+              <DialogTitle className="text-xl font-bold tracking-tight">Edit Data Pegawai</DialogTitle>
+              <DialogDescription className="text-xs">Perbarui informasi kepegawaian yang diperlukan.</DialogDescription>
+            </DialogHeader>
             {editingPegawai && (
-              <form onSubmit={handleEdit} className="grid grid-cols-2 gap-4 mt-4">
-                <div className="col-span-2 space-y-1.5"><Label>Nama Lengkap</Label><Input name="nama" defaultValue={editingPegawai.nama} required /></div>
-                <div><Label>NIP</Label><Input name="nip" defaultValue={editingPegawai.nip} required /></div>
-                <div>
-                  <Label>Golongan</Label>
-                  <Select name="golongan" defaultValue={editingPegawai.golongan} required>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{MASTER_GOLONGAN.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-                  </Select>
+              <form onSubmit={handleEdit} className="p-6 pt-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                  <div className="md:col-span-2 space-y-1.5">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Nama Lengkap</Label>
+                    <Input name="nama" defaultValue={editingPegawai.nama} required className="h-10 rounded-xl" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">NIP</Label>
+                    <Input name="nip" defaultValue={editingPegawai.nip} required className="h-10 rounded-xl" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Golongan</Label>
+                    <Select name="golongan" defaultValue={editingPegawai.golongan} required>
+                      <SelectTrigger className="h-10 rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        {MASTER_GOLONGAN.map((g) => (
+                          <SelectItem key={g} value={g}>{g}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="md:col-span-2 space-y-1.5">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Tanggal Masuk CPNS</Label>
+                    <Input 
+                      name="tanggalMasuk" 
+                      type="date" 
+                      defaultValue={editingPegawai.tanggalMasuk?.split('T')[0]} 
+                      required 
+                      className="h-10 rounded-xl"
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-1.5">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Jabatan</Label>
+                    <Select name="jabatan" defaultValue={editingPegawai.jabatan} required>
+                      <SelectTrigger className="h-10 rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        {MASTER_JABATAN.map((j) => (
+                          <SelectItem key={j} value={j}>{j}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="md:col-span-2 space-y-1.5">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Unit Kerja</Label>
+                    <Select name="unit" defaultValue={editingPegawai.unitKerja} required>
+                      <SelectTrigger className="h-10 rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        {MASTER_UNIT.map((u) => (
+                          <SelectItem key={u} value={u}>{u}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Telepon</Label>
+                    <Input name="phone" defaultValue={editingPegawai.phone} required className="h-10 rounded-xl" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Email</Label>
+                    <Input name="email" type="email" defaultValue={editingPegawai.email} required className="h-10 rounded-xl" />
+                  </div>
                 </div>
-                <div className="col-span-2 space-y-1.5">
-                  <Label>Tanggal Masuk CPNS</Label>
-                  <Input name="tanggalMasuk" type="date" defaultValue={editingPegawai.tanggalMasuk?.split('T')[0]} required />
-                </div>
-                <div className="col-span-2 space-y-1.5">
-                  <Label>Jabatan</Label>
-                  <Select name="jabatan" defaultValue={editingPegawai.jabatan} required>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{MASTER_JABATAN.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div><Label>Telepon</Label><Input name="phone" defaultValue={editingPegawai.phone} required /></div>
-                <div><Label>Email</Label><Input name="email" type="email" defaultValue={editingPegawai.email} required /></div>
-                <DialogFooter className="col-span-2 mt-4"><Button type="submit" className="w-full">Simpan Perubahan</Button></DialogFooter>
+                <DialogFooter className="mt-8 gap-3 sm:gap-0">
+                  <Button type="button" variant="ghost" onClick={() => setEditOpen(false)} className="rounded-xl h-11">Batal</Button>
+                  <Button type="submit" className="w-full md:w-auto h-11 px-8 rounded-xl shadow-glow font-bold text-white bg-primary hover:bg-primary/90 transition-all">Simpan Perubahan</Button>
+                </DialogFooter>
               </form>
             )}
           </DialogContent>
