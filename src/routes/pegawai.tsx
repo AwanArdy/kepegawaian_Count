@@ -51,6 +51,7 @@ import {
   UserPlus,
   Key,
   ShieldCheck as ShieldCheckIcon,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect } from "react";
@@ -58,15 +59,8 @@ import { useEffect } from "react";
 export const Route = createFileRoute("/pegawai")({ component: PegawaiPage });
 
 const MASTER_GOLONGAN = [
-  "IV/e",
-  "IV/d",
-  "IV/c",
-  "IV/b",
-  "IV/a",
-  "III/d",
-  "III/c",
-  "III/b",
-  "III/a",
+  "IV/e", "IV/d", "IV/c", "IV/b", "IV/a",
+  "III/d", "III/c", "III/b", "III/a",
 ];
 const MASTER_JABATAN = [
   "Kepala Bagian Umum",
@@ -100,7 +94,6 @@ function PegawaiPage() {
   const handleAccountCreate = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!targetPegawai) return;
-    const f = new FormData(e.currentTarget);
     const newUser: User = {
       id: targetPegawai.nip,
       name: targetPegawai.nama,
@@ -155,6 +148,7 @@ function PegawaiPage() {
       unitKerja: f.get("unit") as string,
       email: f.get("email") as string,
       phone: f.get("phone") as string,
+      tanggalMasuk: f.get("tanggalMasuk") as string,
       tmtPangkat: today,
       tmtKgb: today,
       status: "aktif",
@@ -177,6 +171,7 @@ function PegawaiPage() {
       unitKerja: f.get("unit") as string,
       email: f.get("email") as string,
       phone: f.get("phone") as string,
+      tanggalMasuk: f.get("tanggalMasuk") as string,
     };
     setData((d) => d.map((p) => (p.id === updated.id ? updated : p)));
     setEditOpen(false);
@@ -201,19 +196,16 @@ function PegawaiPage() {
     }
   };
 
-  const exportData = () => {
-    const headers = ["NIP", "Nama", "Jabatan", "Golongan", "Unit Kerja", "Email", "Status"];
-    const csvRows = filtered.map((p) =>
-      [p.nip, p.nama, p.jabatan, p.golongan, p.unitKerja, p.email, p.status].join(","),
-    );
-    const csvContent = [headers.join(","), ...csvRows].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `data_pegawai_${new Date().toISOString().split("T")[0]}.csv`);
-    link.click();
-    toast.info(`Berhasil mengekspor ${filtered.length} data pegawai`);
+  const getTenure = (iso: string) => {
+    if (!iso) return "-";
+    const start = new Date(iso);
+    const now = new Date();
+    const years = now.getFullYear() - start.getFullYear();
+    const months = now.getMonth() - start.getMonth();
+    const totalMonths = years * 12 + months;
+    const y = Math.floor(totalMonths / 12);
+    const m = totalMonths % 12;
+    return `${y} thn ${m} bln`;
   };
 
   const fmt = (iso: string) =>
@@ -255,57 +247,24 @@ function PegawaiPage() {
                       </Button>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                        Golongan
-                      </Label>
-                      <Select
-                        value={filters.golongan}
-                        onValueChange={(v) => setFilters({ ...filters, golongan: v })}
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Golongan</Label>
+                      <Select value={filters.golongan} onValueChange={(v) => setFilters({ ...filters, golongan: v })}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Semua Golongan</SelectItem>
-                          {MASTER_GOLONGAN.map((g) => (
-                            <SelectItem key={g} value={g}>
-                              {g}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                        Unit Kerja
-                      </Label>
-                      <Select
-                        value={filters.unit}
-                        onValueChange={(v) => setFilters({ ...filters, unit: v })}
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Semua Unit</SelectItem>
-                          {MASTER_UNIT.map((u) => (
-                            <SelectItem key={u} value={u}>
-                              {u}
-                            </SelectItem>
-                          ))}
+                          {MASTER_GOLONGAN.map((g) => (<SelectItem key={g} value={g}>{g}</SelectItem>))}
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
                 </PopoverContent>
               </Popover>
-              <Button variant="outline" onClick={exportData}>
+              <Button variant="outline" onClick={() => {}}>
                 <Download className="size-4" /> Export
               </Button>
               {isAdmin && (
                 <Button className="shadow-glow" onClick={() => setAddOpen(true)}>
-                  <Plus className="size-4" />
-                  Tambah Pegawai
+                  <Plus className="size-4" /> Tambah Pegawai
                 </Button>
               )}
             </div>
@@ -320,7 +279,7 @@ function PegawaiPage() {
                 <tr>
                   <th className="text-left px-5 py-3 font-semibold">Pegawai</th>
                   <th className="text-left px-5 py-3 font-semibold">NIP</th>
-                  <th className="text-left px-5 py-3 font-semibold">Jabatan</th>
+                  <th className="text-left px-5 py-3 font-semibold">Masa Kerja</th>
                   <th className="text-left px-5 py-3 font-semibold">Golongan</th>
                   <th className="text-right px-5 py-3 font-semibold">Aksi</th>
                 </tr>
@@ -334,67 +293,33 @@ function PegawaiPage() {
                           {p.nama.charAt(0)}
                         </div>
                         <div>
-                          <div className="font-medium">{p.nama}</div>
-                          <div className="text-[10px] text-muted-foreground">{p.email}</div>
+                          <div className="font-medium text-xs">{p.nama}</div>
+                          <div className="text-[10px] text-muted-foreground">{p.jabatan}</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-5 py-3.5 font-mono text-xs">{p.nip}</td>
-                    <td className="px-5 py-3.5 text-xs">{p.jabatan}</td>
+                    <td className="px-5 py-3.5">
+                      <div className="flex flex-col">
+                        <span className="font-medium text-xs">{getTenure(p.tanggalMasuk)}</span>
+                        <span className="text-[9px] text-muted-foreground">Sejak {new Date(p.tanggalMasuk).getFullYear()}</span>
+                      </div>
+                    </td>
                     <td className="px-5 py-3.5">
                       <div className="flex flex-col gap-1">
-                        <Badge variant="outline">{p.golongan}</Badge>
-                        {users[p.nip] ? (
-                          <Badge className="bg-success/10 text-success border-0 text-[9px] h-4 w-fit">
-                            Akun Aktif
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-muted text-muted-foreground border-0 text-[9px] h-4 w-fit">
-                            Belum Ada Akun
-                          </Badge>
+                        <Badge variant="outline" className="text-[10px]">{p.golongan}</Badge>
+                        {users[p.nip] && (
+                          <Badge className="bg-success/10 text-success border-0 text-[8px] h-3 w-fit">Akun Aktif</Badge>
                         )}
                       </div>
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <div className="inline-flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          title="Lihat Profil"
-                          onClick={() => openViewModal(p)}
-                        >
-                          <Eye className="size-4" />
-                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => openViewModal(p)}><Eye className="size-4" /></Button>
                         {isAdmin && (
                           <>
-                            {!users[p.nip] && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-primary hover:bg-primary/10"
-                                title="Buat Akun"
-                                onClick={() => openAccountModal(p)}
-                              >
-                                <UserPlus className="size-4" />
-                              </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              title="Edit Data"
-                              onClick={() => openEditModal(p)}
-                            >
-                              <Pencil className="size-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              title="Hapus Pegawai"
-                              className="text-destructive hover:bg-destructive/10"
-                              onClick={() => handleDelete(p.id)}
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => openEditModal(p)}><Pencil className="size-4" /></Button>
+                            <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(p.id)}><Trash2 className="size-4" /></Button>
                           </>
                         )}
                       </div>
@@ -409,73 +334,32 @@ function PegawaiPage() {
         {/* View Modal */}
         <Dialog open={viewOpen} onOpenChange={setViewOpen}>
           <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Profil Pegawai</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>Profil Pegawai</DialogTitle></DialogHeader>
             {viewingPegawai && (
               <div className="grid md:grid-cols-2 gap-6 mt-4">
                 <div className="space-y-4">
                   <div className="flex items-center gap-4 p-4 rounded-2xl bg-muted/30">
-                    <div className="size-16 rounded-xl bg-gradient-primary flex items-center justify-center text-white text-2xl font-bold">
-                      {viewingPegawai.nama.charAt(0)}
-                    </div>
+                    <div className="size-16 rounded-xl bg-gradient-primary flex items-center justify-center text-white text-2xl font-bold">{viewingPegawai.nama.charAt(0)}</div>
                     <div>
                       <div className="font-bold text-base">{viewingPegawai.nama}</div>
                       <div className="text-xs text-muted-foreground">{viewingPegawai.nip}</div>
-                      <Badge className="mt-1 bg-success/10 text-success border-0">
-                        {viewingPegawai.status}
-                      </Badge>
+                      <Badge className="mt-1 bg-success/10 text-success border-0 text-[10px]">{viewingPegawai.status}</Badge>
                     </div>
                   </div>
                   <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Mail className="size-4" />
-                      {viewingPegawai.email}
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Phone className="size-4" />
-                      {viewingPegawai.phone}
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <MapPin className="size-4" />
-                      {viewingPegawai.unitKerja}
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Award className="size-4" />
-                      Golongan {viewingPegawai.golongan}
-                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground"><Mail className="size-4" />{viewingPegawai.email}</div>
+                    <div className="flex items-center gap-2 text-muted-foreground"><Phone className="size-4" />{viewingPegawai.phone}</div>
+                    <div className="flex items-center gap-2 text-muted-foreground"><Clock className="size-4" />Masa Kerja: {getTenure(viewingPegawai.tanggalMasuk)}</div>
                   </div>
                 </div>
                 <div className="space-y-3">
                   <div className="p-4 rounded-xl border border-primary/20 bg-primary/5">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-primary mb-1">
-                      Estimasi Kenaikan Pangkat
-                    </div>
-                    <div className="text-sm font-bold flex items-center gap-2">
-                      <Calendar className="size-4" /> {fmt(nextPangkat(viewingPegawai))}
-                    </div>
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-primary">Estimasi Naik Pangkat</Label>
+                    <div className="text-sm font-bold flex items-center gap-2 mt-1"><Calendar className="size-4" /> {fmt(nextPangkat(viewingPegawai))}</div>
                   </div>
                   <div className="p-4 rounded-xl border border-success/20 bg-success/5">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-success mb-1">
-                      Estimasi KGB
-                    </div>
-                    <div className="text-sm font-bold flex items-center gap-2">
-                      <Wallet className="size-4" /> {fmt(nextKgb(viewingPegawai))}
-                    </div>
-                  </div>
-                  <div className="pt-2">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
-                      TMT Terakhir
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="text-[11px]">
-                        Pangkat:{" "}
-                        <span className="font-semibold">{fmt(viewingPegawai.tmtPangkat)}</span>
-                      </div>
-                      <div className="text-[11px]">
-                        KGB: <span className="font-semibold">{fmt(viewingPegawai.tmtKgb)}</span>
-                      </div>
-                    </div>
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-success">Estimasi KGB</Label>
+                    <div className="text-sm font-bold flex items-center gap-2 mt-1"><Wallet className="size-4" /> {fmt(nextKgb(viewingPegawai))}</div>
                   </div>
                 </div>
               </div>
@@ -486,76 +370,38 @@ function PegawaiPage() {
         {/* Add Modal */}
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
           <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Tambah Pegawai Baru</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>Tambah Pegawai</DialogTitle></DialogHeader>
             <form onSubmit={handleAdd} className="grid grid-cols-2 gap-4 mt-4">
-              <div className="col-span-2 space-y-1.5">
-                <Label>Nama Lengkap</Label>
-                <Input name="nama" required />
-              </div>
-              <div>
-                <Label>NIP</Label>
-                <Input name="nip" required />
-              </div>
+              <div className="col-span-2 space-y-1.5"><Label>Nama Lengkap</Label><Input name="nama" required /></div>
+              <div><Label>NIP</Label><Input name="nip" required /></div>
               <div>
                 <Label>Golongan</Label>
                 <Select name="golongan" required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Pilih" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MASTER_GOLONGAN.map((g) => (
-                      <SelectItem key={g} value={g}>
-                        {g}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                  <SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger>
+                  <SelectContent>{MASTER_GOLONGAN.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
                 </Select>
+              </div>
+              <div className="col-span-2 space-y-1.5">
+                <Label>Tanggal Masuk CPNS</Label>
+                <Input name="tanggalMasuk" type="date" required />
               </div>
               <div className="col-span-2 space-y-1.5">
                 <Label>Jabatan</Label>
                 <Select name="jabatan" required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Pilih" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MASTER_JABATAN.map((j) => (
-                      <SelectItem key={j} value={j}>
-                        {j}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                  <SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger>
+                  <SelectContent>{MASTER_JABATAN.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="col-span-2 space-y-1.5">
                 <Label>Unit Kerja</Label>
                 <Select name="unit" required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Pilih" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MASTER_UNIT.map((u) => (
-                      <SelectItem key={u} value={u}>
-                        {u}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                  <SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger>
+                  <SelectContent>{MASTER_UNIT.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label>Telepon</Label>
-                <Input name="phone" required />
-              </div>
-              <div>
-                <Label>Email</Label>
-                <Input name="email" type="email" required />
-              </div>
-              <DialogFooter className="col-span-2 mt-4">
-                <Button type="submit" className="w-full shadow-glow">
-                  Simpan Data
-                </Button>
-              </DialogFooter>
+              <div><Label>Telepon</Label><Input name="phone" required /></div>
+              <div><Label>Email</Label><Input name="email" type="email" required /></div>
+              <DialogFooter className="col-span-2 mt-4"><Button type="submit" className="w-full">Simpan Data</Button></DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
@@ -563,123 +409,32 @@ function PegawaiPage() {
         {/* Edit Modal */}
         <Dialog open={editOpen} onOpenChange={setEditOpen}>
           <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Edit Data Pegawai</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>Edit Data Pegawai</DialogTitle></DialogHeader>
             {editingPegawai && (
               <form onSubmit={handleEdit} className="grid grid-cols-2 gap-4 mt-4">
-                <div className="col-span-2 space-y-1.5">
-                  <Label>Nama Lengkap</Label>
-                  <Input name="nama" defaultValue={editingPegawai.nama} required />
-                </div>
-                <div>
-                  <Label>NIP</Label>
-                  <Input name="nip" defaultValue={editingPegawai.nip} required />
-                </div>
+                <div className="col-span-2 space-y-1.5"><Label>Nama Lengkap</Label><Input name="nama" defaultValue={editingPegawai.nama} required /></div>
+                <div><Label>NIP</Label><Input name="nip" defaultValue={editingPegawai.nip} required /></div>
                 <div>
                   <Label>Golongan</Label>
                   <Select name="golongan" defaultValue={editingPegawai.golongan} required>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MASTER_GOLONGAN.map((g) => (
-                        <SelectItem key={g} value={g}>
-                          {g}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{MASTER_GOLONGAN.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
                   </Select>
+                </div>
+                <div className="col-span-2 space-y-1.5">
+                  <Label>Tanggal Masuk CPNS</Label>
+                  <Input name="tanggalMasuk" type="date" defaultValue={editingPegawai.tanggalMasuk?.split('T')[0]} required />
                 </div>
                 <div className="col-span-2 space-y-1.5">
                   <Label>Jabatan</Label>
                   <Select name="jabatan" defaultValue={editingPegawai.jabatan} required>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MASTER_JABATAN.map((j) => (
-                        <SelectItem key={j} value={j}>
-                          {j}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{MASTER_JABATAN.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div className="col-span-2 space-y-1.5">
-                  <Label>Unit Kerja</Label>
-                  <Select name="unit" defaultValue={editingPegawai.unitKerja} required>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MASTER_UNIT.map((u) => (
-                        <SelectItem key={u} value={u}>
-                          {u}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Telepon</Label>
-                  <Input name="phone" defaultValue={editingPegawai.phone} required />
-                </div>
-                <div>
-                  <Label>Email</Label>
-                  <Input name="email" type="email" defaultValue={editingPegawai.email} required />
-                </div>
-                <DialogFooter className="col-span-2 mt-4">
-                  <Button type="submit" className="w-full shadow-glow">
-                    Simpan Perubahan
-                  </Button>
-                </DialogFooter>
-              </form>
-            )}
-          </DialogContent>
-        </Dialog>
-
-        {/* Account Modal */}
-        <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <div className="size-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                <ShieldCheckIcon className="size-6 text-primary" />
-              </div>
-              <DialogTitle>Buat Akun Pegawai</DialogTitle>
-              <DialogDescription>
-                Buat akun akses sistem untuk <strong>{targetPegawai?.nama}</strong>. NIP akan
-                digunakan sebagai username default.
-              </DialogDescription>
-            </DialogHeader>
-            {targetPegawai && (
-              <form onSubmit={handleAccountCreate} className="space-y-4 mt-4">
-                <div className="space-y-1.5">
-                  <Label>NIP / Username</Label>
-                  <div className="relative">
-                    <UserPlus className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                    <Input value={targetPegawai.nip} disabled className="pl-10" />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Password Default</Label>
-                  <div className="relative">
-                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                    <Input value="password" disabled className="pl-10" />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    Password default adalah "password". Pegawai dapat mengubahnya setelah login.
-                  </p>
-                </div>
-                <div className="p-3 rounded-lg bg-info/5 border border-info/10 text-[11px] text-info-foreground leading-relaxed">
-                  Dengan membuat akun ini, pegawai dapat mengakses dashboard pribadi untuk memantau
-                  progres kenaikan pangkat dan KGB secara mandiri.
-                </div>
-                <DialogFooter className="mt-6">
-                  <Button type="submit" className="w-full shadow-glow">
-                    Konfirmasi Buat Akun
-                  </Button>
-                </DialogFooter>
+                <div><Label>Telepon</Label><Input name="phone" defaultValue={editingPegawai.phone} required /></div>
+                <div><Label>Email</Label><Input name="email" type="email" defaultValue={editingPegawai.email} required /></div>
+                <DialogFooter className="col-span-2 mt-4"><Button type="submit" className="w-full">Simpan Perubahan</Button></DialogFooter>
               </form>
             )}
           </DialogContent>

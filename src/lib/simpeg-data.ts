@@ -22,6 +22,7 @@ export interface Pegawai {
   phone: string;
   tmtPangkat: string; // ISO date
   tmtKgb: string;
+  tanggalMasuk: string; // Tanggal pertama kali masuk/CPNS
   status: "aktif" | "cuti" | "pensiun";
   avatar?: string;
 }
@@ -72,6 +73,7 @@ export const mockPegawai: Pegawai[] = [
     tmtPangkat: addYears(new Date(today.getFullYear() - 4, 0, 15), 0),
     tmtKgb: addYears(new Date(today.getFullYear() - 1, 5, 1), 0),
     status: "aktif",
+    tanggalMasuk: new Date(2015, 0, 1).toISOString(),
   },
   {
     id: "p2",
@@ -85,6 +87,7 @@ export const mockPegawai: Pegawai[] = [
     tmtPangkat: new Date(today.getFullYear() - 3, today.getMonth() + 1, 10).toISOString(),
     tmtKgb: new Date(today.getFullYear() - 2, today.getMonth() - 1, 5).toISOString(),
     status: "aktif",
+    tanggalMasuk: new Date(2015, 0, 1).toISOString(),
   },
   {
     id: "p3",
@@ -98,6 +101,7 @@ export const mockPegawai: Pegawai[] = [
     tmtPangkat: new Date(today.getFullYear() - 4, today.getMonth(), 20).toISOString(),
     tmtKgb: new Date(today.getFullYear() - 2, today.getMonth(), 12).toISOString(),
     status: "aktif",
+    tanggalMasuk: new Date(2015, 0, 1).toISOString(),
   },
   {
     id: "p4",
@@ -111,6 +115,7 @@ export const mockPegawai: Pegawai[] = [
     tmtPangkat: new Date(today.getFullYear() - 2, 3, 1).toISOString(),
     tmtKgb: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7).toISOString(),
     status: "aktif",
+    tanggalMasuk: new Date(2015, 0, 1).toISOString(),
   },
   {
     id: "p5",
@@ -124,6 +129,7 @@ export const mockPegawai: Pegawai[] = [
     tmtPangkat: new Date(today.getFullYear() - 4, today.getMonth() + 1, 15).toISOString(),
     tmtKgb: new Date(today.getFullYear() - 1, 8, 1).toISOString(),
     status: "aktif",
+    tanggalMasuk: new Date(2015, 0, 1).toISOString(),
   },
   {
     id: "p6",
@@ -137,6 +143,7 @@ export const mockPegawai: Pegawai[] = [
     tmtPangkat: new Date(today.getFullYear() - 3, 6, 1).toISOString(),
     tmtKgb: new Date(today.getFullYear() - 2, 2, 10).toISOString(),
     status: "aktif",
+    tanggalMasuk: new Date(2015, 0, 1).toISOString(),
   },
   {
     id: "p7",
@@ -154,6 +161,7 @@ export const mockPegawai: Pegawai[] = [
     ).toISOString(),
     tmtKgb: new Date(today.getFullYear() - 1, 11, 5).toISOString(),
     status: "aktif",
+    tanggalMasuk: new Date(2015, 0, 1).toISOString(),
   },
   {
     id: "p8",
@@ -167,6 +175,7 @@ export const mockPegawai: Pegawai[] = [
     tmtPangkat: new Date(today.getFullYear() - 1, 4, 20).toISOString(),
     tmtKgb: new Date(today.getFullYear() - 2, today.getMonth(), today.getDate() + 30).toISOString(),
     status: "aktif",
+    tanggalMasuk: new Date(2015, 0, 1).toISOString(),
   },
 ];
 
