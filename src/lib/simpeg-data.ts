@@ -295,6 +295,38 @@ export const demoUsers: Record<string, User> = {
   },
 };
 
+export interface ImportantDoc {
+  id: number;
+  name: string;
+  type: string;
+  size: string;
+}
+
+export const defaultImportantDocs: ImportantDoc[] = [
+  { id: 1, name: "Panduan Kenaikan Pangkat 2026", type: "PDF", size: "1.2 MB" },
+  { id: 2, name: "Peraturan KGB Terbaru (Pertek No. 12)", type: "PDF", size: "850 KB" },
+  { id: 3, name: "Manual Penggunaan Dashboard SIKAPAS", type: "PDF", size: "2.4 MB" },
+  { id: 4, name: "Template SKP Tahunan", type: "DOCX", size: "45 KB" },
+];
+
+const DOCS_KEY = "sikapas_important_docs";
+
+export function getStoredDocs(): ImportantDoc[] {
+  if (typeof window === "undefined") return defaultImportantDocs;
+  const stored = localStorage.getItem(DOCS_KEY);
+  if (!stored) {
+    localStorage.setItem(DOCS_KEY, JSON.stringify(defaultImportantDocs));
+    return defaultImportantDocs;
+  }
+  return JSON.parse(stored);
+}
+
+export function setStoredDocs(docs: ImportantDoc[]) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(DOCS_KEY, JSON.stringify(docs));
+  }
+}
+
 // LocalStorage Helpers
 const STORAGE_KEY = "simpeg_pegawai_data";
 const USERS_KEY = "simpeg_users_data";
