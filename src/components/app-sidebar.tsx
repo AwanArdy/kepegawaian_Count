@@ -78,8 +78,12 @@ export function AppSidebar() {
             state === "collapsed" ? "justify-center" : "px-3",
           )}
         >
-          <div className="size-11 shrink-0 rounded-xl bg-gradient-primary flex items-center justify-center shadow-glow transition-transform duration-300">
-            <Building2 className="size-6 text-white" />
+          <div className="size-12 shrink-0 transition-transform duration-300">
+            <img 
+              src="/kementrian_imigrasi_sikapas.png" 
+              alt="SIKAPAS Logo" 
+              className="w-full h-full object-contain"
+            />
           </div>
           <div
             className={cn(
@@ -87,7 +91,7 @@ export function AppSidebar() {
               state === "collapsed" ? "w-0 opacity-0" : "w-auto opacity-100",
             )}
           >
-            <div className="font-bold text-base leading-tight">SIMPEG</div>
+            <div className="font-bold text-base leading-tight text-sidebar-foreground">SIKAPAS</div>
             <div className="text-[10px] uppercase tracking-wider text-sidebar-foreground/60">
               Sistem Kepegawaian
             </div>

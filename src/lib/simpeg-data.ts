@@ -274,7 +274,7 @@ export const demoUsers: Record<string, User> = {
     name: "Andi Wijaya",
     nip: "198001012005011001",
     role: "admin",
-    email: "admin@simpeg.go.id",
+    email: "admin@sikapas.go.id",
     jabatan: "Admin Kepegawaian",
   },
   pegawai: {
@@ -282,7 +282,7 @@ export const demoUsers: Record<string, User> = {
     name: "Siti Nurhaliza",
     nip: "198806202012032002",
     role: "pegawai",
-    email: "siti@simpeg.go.id",
+    email: "siti@sikapas.go.id",
     jabatan: "Analis Keuangan",
   },
   pimpinan: {
@@ -290,7 +290,7 @@ export const demoUsers: Record<string, User> = {
     name: "Dr. Bambang Sutrisno",
     nip: "197503151998031001",
     role: "pimpinan",
-    email: "pimpinan@simpeg.go.id",
+    email: "pimpinan@sikapas.go.id",
     jabatan: "Sekretaris Daerah",
   },
 };

@@ -77,7 +77,7 @@ const golData = [
 const importantDocs = [
   { id: 1, name: "Panduan Kenaikan Pangkat 2026", type: "PDF", size: "1.2 MB" },
   { id: 2, name: "Peraturan KGB Terbaru (Pertek No. 12)", type: "PDF", size: "850 KB" },
-  { id: 3, name: "Manual Penggunaan Dashboard SIMPEG", type: "PDF", size: "2.4 MB" },
+  { id: 3, name: "Manual Penggunaan Dashboard SIKAPAS", type: "PDF", size: "2.4 MB" },
   { id: 4, name: "Template SKP Tahunan", type: "DOCX", size: "45 KB" },
 ];
 

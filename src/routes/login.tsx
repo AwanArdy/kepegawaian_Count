@@ -69,12 +69,16 @@ function Login() {
           to="/"
           className="relative flex items-center gap-2.5 hover:opacity-90 transition-opacity w-fit"
         >
-          <div className="size-10 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center">
-            <Building2 className="size-5" />
+          <div className="size-10 shrink-0">
+            <img 
+              src="/kementrian_imigrasi_sikapas.png" 
+              alt="SIKAPAS Logo" 
+              className="w-full h-full object-contain"
+            />
           </div>
           <div>
-            <div className="font-bold">SIMPEG</div>
-            <div className="text-[10px] uppercase tracking-wider opacity-70">
+            <div className="font-bold text-white">SIKAPAS</div>
+            <div className="text-[10px] uppercase tracking-wider text-white/70">
               Kepegawaian Modern
             </div>
           </div>
@@ -106,7 +110,7 @@ function Login() {
         </div>
 
         <div className="relative text-xs opacity-60 flex justify-between items-center">
-          <span>© {new Date().getFullYear()} SIMPEG Enterprise</span>
+          <span>© {new Date().getFullYear()} SIKAPAS Enterprise</span>
           <div className="flex gap-4">
             <span>Bantuan</span>
             <span>Panduan</span>
@@ -122,11 +126,15 @@ function Login() {
             to="/"
             className="lg:hidden flex items-center gap-2.5 mb-10 hover:opacity-90 transition-opacity w-fit"
           >
-            <div className="size-10 rounded-xl bg-gradient-primary flex items-center justify-center shadow-elevated">
-              <Building2 className="size-5 text-white" />
+            <div className="size-11 shrink-0">
+              <img 
+                src="/kementrian_imigrasi_sikapas.png" 
+                alt="SIKAPAS Logo" 
+                className="w-full h-full object-contain"
+              />
             </div>
             <div>
-              <div className="font-bold text-xl">SIMPEG</div>
+              <div className="font-bold text-xl">SIKAPAS</div>
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
                 Sistem Kepegawaian
               </div>
