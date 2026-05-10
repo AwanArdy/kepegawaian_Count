@@ -21,7 +21,24 @@ import {
   nextPangkat, 
   daysUntil 
 } from "@/lib/simpeg-data";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+
+const carouselImages = [
+  "/carousel/SIKAPAS_01.png",
+  "/carousel/SIKAPAS_02.png",
+  "/carousel/SIKAPAS_03.png",
+  "/carousel/SIKAPAS_04.png",
+  "/carousel/SIKAPAS_05.png",
+  "/carousel/SIKAPAS_06.png",
+  "/carousel/SIKAPAS_07.png",
+];
 
 export const Route = createFileRoute("/")({
   component: Landing,
@@ -46,6 +63,19 @@ function Landing() {
       .sort((a, b) => a.sisaHari - b.sisaHari)
       .slice(0, 5);
   }, [allPegawai, user]);
+
+  // Carousel API for autoplay
+  const [api, setApi] = useState<any>();
+
+  useEffect(() => {
+    if (!api) return;
+    
+    const intervalId = setInterval(() => {
+      api.scrollNext();
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [api]);
 
   const features = [
     {
@@ -181,46 +211,41 @@ function Landing() {
               </div>
             </div>
 
-            {/* Mockup Dashboard */}
+            {/* Interactive Carousel */}
             <div className="relative w-full lg:w-1/2 group animate-in fade-in slide-in-from-right-10 duration-1000 delay-500">
-              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-primary-glow/50 to-transparent blur opacity-20 group-hover:opacity-40 transition-opacity" />
-              <div className="relative rounded-2xl border border-white/20 bg-white/5 backdrop-blur-2xl p-2 shadow-2xl overflow-hidden">
+              <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-primary-glow/30 to-transparent blur-2xl opacity-20 group-hover:opacity-40 transition-opacity" />
+              <div className="relative rounded-[2.5rem] border border-white/20 bg-white/5 backdrop-blur-2xl p-3 shadow-2xl overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
-                <div className="rounded-xl overflow-hidden border border-white/10 bg-background/95">
-                  <div className="h-8 border-b border-border bg-muted/50 flex items-center gap-1.5 px-4">
-                    <div className="size-2.5 rounded-full bg-destructive/40" />
-                    <div className="size-2.5 rounded-full bg-warning/40" />
-                    <div className="size-2.5 rounded-full bg-success/40" />
+                
+                <Carousel 
+                  opts={{ loop: true }} 
+                  setApi={setApi}
+                  className="w-full"
+                >
+                  <CarouselContent>
+                    {carouselImages.map((src, index) => (
+                      <CarouselItem key={index}>
+                        <div className="relative aspect-[16/10] rounded-2xl overflow-hidden border border-white/10 bg-background/95 shadow-inner p-4 lg:p-8 flex items-center justify-center">
+                          <img 
+                            src={src} 
+                            alt={`Preview ${index + 1}`} 
+                            className="w-full h-full object-contain hover:scale-105 transition-transform duration-700"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent pointer-events-none" />
+                          <div className="absolute bottom-4 left-6 flex items-center gap-2">
+                             <div className="px-3 py-1 rounded-full bg-primary/10 backdrop-blur-md border border-primary/20 text-[10px] font-bold text-primary uppercase tracking-widest">
+                               Module {index + 1}
+                             </div>
+                          </div>
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  <div className="absolute -bottom-12 right-0 flex gap-2">
+                    <CarouselPrevious className="static translate-y-0 size-10 bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white rounded-xl" />
+                    <CarouselNext className="static translate-y-0 size-10 bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white rounded-xl" />
                   </div>
-                  <div className="p-4 space-y-4">
-                    <div className="flex gap-4">
-                      <div className="w-1/3 h-24 rounded-lg bg-primary/5 border border-primary/10 p-3">
-                        <div className="size-6 rounded-md bg-primary/20 mb-2" />
-                        <div className="h-3 w-12 bg-primary/20 rounded mb-1" />
-                        <div className="h-5 w-8 bg-primary/40 rounded" />
-                      </div>
-                      <div className="w-1/3 h-24 rounded-lg bg-info/5 border border-info/10 p-3">
-                        <div className="size-6 rounded-md bg-info/20 mb-2" />
-                        <div className="h-3 w-16 bg-info/20 rounded mb-1" />
-                        <div className="h-5 w-10 bg-info/40 rounded" />
-                      </div>
-                      <div className="w-1/3 h-24 rounded-lg bg-success/5 border border-success/10 p-3">
-                        <div className="size-6 rounded-md bg-success/20 mb-2" />
-                        <div className="h-3 w-14 bg-success/20 rounded mb-1" />
-                        <div className="h-5 w-12 bg-success/40 rounded" />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="h-4 w-32 bg-muted rounded" />
-                      <div className="h-32 w-full rounded-lg bg-muted/30 border border-border flex items-center justify-center">
-                         <div className="flex flex-col items-center gap-2">
-                            <TrendingUp className="size-8 text-primary/30" />
-                            <div className="h-2 w-24 bg-primary/10 rounded" />
-                         </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                </Carousel>
               </div>
             </div>
           </div>
@@ -370,13 +395,13 @@ function Landing() {
               Sistem menyediakan antarmuka yang dioptimalkan untuk setiap jenis pengguna.
             </p>
           </div>
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
             {[
               {
                 title: "Admin Kepegawaian",
                 icon: Users,
                 color: "from-primary to-primary-glow",
-                desc: "Pengelola pusat data dan monitor seluruh progres administrasi.",
+                desc: "Pengelola pusat data and monitor seluruh progres administrasi.",
                 items: ["Kelola data pegawai", "Verifikasi dokumen", "Monitoring sistem"],
               },
               {
@@ -385,13 +410,6 @@ function Landing() {
                 color: "from-info to-primary",
                 desc: "Akses mandiri untuk memantau karir dan mengunggah berkas.",
                 items: ["Upload dokumen", "Cek status pengajuan", "Download surat"],
-              },
-              {
-                title: "Pimpinan",
-                icon: FileCheck,
-                color: "from-primary-glow to-info",
-                desc: "Otoritas tertinggi untuk persetujuan dan pemantauan laporan.",
-                items: ["Approve / reject", "Monitoring laporan", "Tanda tangan digital"],
               },
             ].map((r) => (
               <div
