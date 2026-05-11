@@ -13,15 +13,11 @@ import {
 } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth-context";
 import {
-  getStoredPegawai,
-  getStoredDocs,
-  setStoredDocs,
   type ImportantDoc,
+  type Pegawai,
   daysUntil,
   nextPangkat,
   nextKgb,
-  mockApprovals,
-  mockRiwayat,
 } from "@/lib/simpeg-data";
 import {
   Users,
@@ -54,32 +50,14 @@ import {
   Pie,
   Cell,
   Legend,
-  BarChart,
-  Bar,
 } from "recharts";
 import { useState, useMemo, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import api from "@/services/api";
 
 export const Route = createFileRoute("/dashboard")({ component: Dashboard });
-
-const trendData = [
-  { bulan: "Jan", pangkat: 4, kgb: 12 },
-  { bulan: "Feb", pangkat: 6, kgb: 9 },
-  { bulan: "Mar", pangkat: 3, kgb: 14 },
-  { bulan: "Apr", pangkat: 8, kgb: 11 },
-  { bulan: "Mei", pangkat: 5, kgb: 17 },
-  { bulan: "Jun", pangkat: 7, kgb: 13 },
-  { bulan: "Jul", pangkat: 9, kgb: 16 },
-];
-
-const golData = [
-  { name: "II", value: 145, color: "oklch(0.65 0.14 200)" },
-  { name: "III", value: 480, color: "oklch(0.55 0.16 260)" },
-  { name: "IV", value: 215, color: "oklch(0.7 0.15 155)" },
-  { name: "I", value: 38, color: "oklch(0.78 0.16 75)" },
-];
 
 function Dashboard() {
   const { user } = useAuth();
@@ -87,47 +65,103 @@ function Dashboard() {
   const [isAddDocOpen, setIsAddDocOpen] = useState(false);
   const [newDoc, setNewDoc] = useState({ name: "", type: "PDF", size: "" });
 
-  useEffect(() => {
-    setDocs(getStoredDocs());
-  }, []);
+  // Dashboard Data States
+  const [stats, setStats] = useState<any>(null);
+  const [distribution, setDistribution] = useState<any[]>([]);
+  const [trends, setTrends] = useState<any>(null);
+  const [myData, setMyData] = useState<Pegawai | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleAddDoc = (e: React.FormEvent) => {
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const isPegawai = user?.role === "pegawai";
+        
+        // Parallel requests
+        const requests: Promise<any>[] = [api.get("/dokumen")];
+        
+        if (!isPegawai) {
+          requests.push(api.get("/dashboard/stats"));
+          requests.push(api.get("/dashboard/distribution"));
+          requests.push(api.get("/dashboard/trends"));
+        } else {
+          // Fetch personal profile for pegawai
+          requests.push(api.get("/pegawai", { params: { search: user?.nip } }));
+          // Still fetch stats for the small cards if needed, or just personal ones
+          requests.push(api.get("/approvals")); // To count my own approvals
+        }
+
+        const responses = await Promise.all(requests);
+        
+        setDocs(responses[0].data.data);
+
+        if (!isPegawai) {
+          setStats(responses[1].data.data);
+          setDistribution(responses[2].data.data);
+          setTrends(responses[3].data.data);
+        } else {
+          const pegawaiList = responses[1].data.data;
+          const me = pegawaiList.find((p: any) => p.nip === user?.nip);
+          setMyData(me || null);
+          
+          // Filter my own approvals
+          const myApps = responses[2].data.data.filter((a: any) => a.pegawai_id === (user as any).id);
+          setStats({
+            myApprovalsCount: myApps.length
+          });
+        }
+      } catch (error) {
+        console.error("Gagal mengambil data dashboard:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboardData();
+  }, [user]);
+
+  const handleAddDoc = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newDoc.name || !newDoc.size) {
-      toast.error("Mohon isi semua field dan pilih file");
+    const fileInput = (e.currentTarget as any).querySelector('input[type="file"]');
+    const file = fileInput?.files?.[0];
+
+    if (!newDoc.name || !file) {
+      toast.error("Mohon isi nama dokumen dan pilih file");
       return;
     }
 
-    const updatedDocs = [
-      ...docs,
-      { ...newDoc, id: Date.now() }
-    ];
-    setDocs(updatedDocs);
-    setStoredDocs(updatedDocs);
-    setIsAddDocOpen(false);
-    setNewDoc({ name: "", type: "PDF", size: "" });
-    toast.success("Dokumen berhasil ditambahkan");
+    const formData = new FormData();
+    formData.append("name", newDoc.name);
+    formData.append("file", file);
+
+    try {
+      const response = await api.post("/dokumen", formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+
+      if (response.data.success) {
+        setDocs([response.data.data, ...docs]);
+        setIsAddDocOpen(false);
+        setNewDoc({ name: "", type: "PDF", size: "" });
+        toast.success("Dokumen berhasil ditambahkan");
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Gagal mengunggah dokumen");
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // 2MB in bytes
     const maxSize = 2 * 1024 * 1024;
-    
     if (file.size > maxSize) {
-      toast.error("File terlalu besar! Maksimal ukuran file adalah 2MB");
-      e.target.value = ""; // Clear input
+      toast.error("File terlalu besar! Maksimal 2MB");
+      e.target.value = "";
       setNewDoc(prev => ({ ...prev, size: "" }));
       return;
     }
 
-    // Format size string
-    const sizeInMB = (file.size / (1024 * 1024)).toFixed(1);
-    const sizeStr = `${sizeInMB} MB`;
-    
-    // Auto-detect type from extension
+    const sizeStr = (file.size / (1024 * 1024)).toFixed(1) + " MB";
     const extension = file.name.split('.').pop()?.toUpperCase() || "PDF";
     
     setNewDoc(prev => ({ 
@@ -138,47 +172,50 @@ function Dashboard() {
     }));
   };
 
-  const handleDeleteDoc = (id: number) => {
-    const updatedDocs = docs.filter(d => d.id !== id);
-    setDocs(updatedDocs);
-    setStoredDocs(updatedDocs);
-    toast.success("Dokumen berhasil dihapus");
+  const handleDeleteDoc = async (id: number) => {
+    if (!confirm("Apakah Anda yakin ingin menghapus dokumen ini?")) return;
+    try {
+      const response = await api.delete(`/dokumen/${id}`);
+      if (response.data.success) {
+        setDocs(docs.filter(d => d.id !== id));
+        toast.success("Dokumen berhasil dihapus");
+      }
+    } catch (error: any) {
+      toast.error("Gagal menghapus dokumen");
+    }
   };
 
-  const currentData = useMemo(() => getStoredPegawai(), []);
-
-  // Logic for Admin/Pimpinan
-  const upcomingPangkat = currentData
-    .map((p) => ({ p, days: daysUntil(nextPangkat(p)) }))
-    .filter((x) => x.days <= 60 && x.days > 0)
-    .sort((a, b) => a.days - b.days);
-  const upcomingKgb = currentData
-    .map((p) => ({ p, days: daysUntil(nextKgb(p)) }))
-    .filter((x) => x.days <= 60 && x.days > 0)
-    .sort((a, b) => a.days - b.days);
-  const pending = mockApprovals.filter((a) => a.status === "pending");
-
-  // Logic for Pegawai (Personal)
-  const myData = currentData.find((p) => p.nip === user?.nip);
-  const myApprovals = mockApprovals.filter((a) => a.pegawaiId === myData?.id);
-  const myHistory = mockRiwayat.filter((r) => r.pegawaiId === myData?.id);
   const daysToPangkat = myData ? daysUntil(nextPangkat(myData)) : 0;
   const daysToKgb = myData ? daysUntil(nextKgb(myData)) : 0;
 
   const isPegawai = user?.role === "pegawai";
+
+  const COLORS = ["oklch(0.65 0.14 200)", "oklch(0.55 0.16 260)", "oklch(0.7 0.15 155)", "oklch(0.78 0.16 75)"];
+
+  const chartTrendData = useMemo(() => {
+    if (!trends) return [];
+    const months = Array.from(new Set([
+      ...trends.pangkat.map((i: any) => i.month),
+      ...trends.kgb.map((i: any) => i.month)
+    ])).sort();
+    
+    return months.map(m => ({
+      bulan: m,
+      pangkat: trends.pangkat.find((i: any) => i.month === m)?.count || 0,
+      kgb: trends.kgb.find((i: any) => i.month === m)?.count || 0,
+    }));
+  }, [trends]);
+
+  if (loading) return <AppShell title="Dashboard"><div className="p-8 text-center">Memuat data...</div></AppShell>;
 
   return (
     <AppShell title="Dashboard">
       <div className="space-y-6">
         {/* Hero Section */}
         <div className="rounded-2xl bg-gradient-hero p-6 lg:p-8 text-white shadow-elevated relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_20%,rgba(255,255,255,0.12),transparent_50%)]" />
-          <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
-              <Badge className="bg-white/15 text-white border-0 mb-3 capitalize">
-                {user?.role}
-              </Badge>
-              <h2 className="text-2xl lg:text-3xl font-bold">
+              <h2 className="text-2xl lg:text-3xl font-bold tracking-tight">
                 Halo, {user?.name.split(",")[0]} 👋
               </h2>
               <p className="mt-2 text-white/80 max-w-xl">
@@ -187,9 +224,9 @@ function Dashboard() {
                   "Anda memiliki beberapa tugas verifikasi dokumen yang menunggu hari ini."}
                 {!isPegawai &&
                   user?.role === "pimpinan" &&
-                  `${pending.length} pengajuan menunggu persetujuan Anda.`}
+                  `${stats?.pendingApprovals || 0} pengajuan menunggu persetujuan Anda.`}
                 {isPegawai &&
-                  `Selamat datang di portal mandiri. Anda berada di Golongan ${myData?.golongan} sebagai ${myData?.jabatan}.`}
+                  `Selamat datang di portal mandiri. Anda berada di Golongan ${myData?.golongan || '-'} sebagai ${myData?.jabatan || '-'}.`}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -201,13 +238,6 @@ function Dashboard() {
 
               {isPegawai ? (
                 <>
-                  <Button
-                    variant="outline"
-                    className="bg-white/10 border-white/30 text-white hover:bg-white/20 hover:text-white"
-                  >
-                    Download SK
-                  </Button>
-
                   <Dialog>
                     <DialogTrigger asChild>
                       <Button
@@ -242,30 +272,15 @@ function Dashboard() {
                               </div>
                             </div>
                             <div className="flex gap-2">
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-8 px-2 hover:bg-primary/10 hover:text-primary"
-                                  >
-                                    <Eye className="size-4 mr-1" /> Baca
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 overflow-hidden">
-                                  <div className="flex-1 bg-muted/20 flex items-center justify-center relative">
-                                    <div className="absolute inset-0 p-8 overflow-y-auto bg-slate-100 flex flex-col items-center">
-                                      <div className="w-full max-w-[600px] aspect-[1/1.4] bg-white shadow-lg p-12 border flex flex-col items-center text-center">
-                                        <FileText className="size-20 text-slate-200 mb-6" />
-                                        <h3 className="text-xl font-bold text-slate-800">{doc.name}</h3>
-                                        <p className="text-slate-500 mt-4 text-sm leading-relaxed">Pratinjau Dokumen.</p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
-                              <Button size="sm" variant="ghost" className="h-8 px-2">
-                                <Download className="size-4" />
+                              <Button size="sm" variant="ghost" className="h-8 px-2" asChild>
+                                <a 
+                                  href={`http://localhost:5000${doc.file_url}`} 
+                                  target="_blank" 
+                                  rel="noreferrer"
+                                  download
+                                >
+                                  <Download className="size-4" />
+                                </a>
                               </Button>
                             </div>
                           </div>
@@ -318,7 +333,7 @@ function Dashboard() {
                            <Button type="submit" className="w-full">Tambahkan Dokumen</Button>
                         </form>
 
-                        <div className="mt-6 space-y-3">
+                        <div className="mt-6 space-y-3 max-h-[300px] overflow-y-auto">
                           {docs.map(doc => (
                             <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg">
                               <span className="text-sm font-medium">{doc.name} ({doc.size})</span>
@@ -347,13 +362,13 @@ function Dashboard() {
                 { label: "Golongan Saat Ini", value: myData?.golongan || "-", icon: UserIcon, accent: "bg-primary/10 text-primary" },
                 { label: "Hari Menuju Pangkat", value: Math.max(0, daysToPangkat).toString(), icon: TrendingUp, accent: "bg-info/10 text-info" },
                 { label: "Hari Menuju KGB", value: Math.max(0, daysToKgb).toString(), icon: Wallet, accent: "bg-success/10 text-success" },
-                { label: "Status Pengajuan", value: myApprovals.length.toString(), icon: FileCheck, accent: "bg-warning/10 text-warning" },
+                { label: "Status Pengajuan", value: stats?.myApprovalsCount?.toString() || "0", icon: FileCheck, accent: "bg-warning/10 text-warning" },
               ]
             : [
-                { label: "Total Pegawai", value: "1.240", icon: Users, accent: "bg-info/10 text-info" },
-                { label: "Akan Naik Pangkat", value: upcomingPangkat.length.toString(), icon: TrendingUp, accent: "bg-primary/10 text-primary" },
-                { label: "Akan KGB", value: upcomingKgb.length.toString(), icon: Wallet, accent: "bg-success/10 text-success" },
-                { label: "Pending Approval", value: pending.length.toString(), icon: FileCheck, accent: "bg-warning/10 text-warning" },
+                { label: "Total Pegawai", value: stats?.totalPegawai?.toString() || "0", icon: Users, accent: "bg-info/10 text-info" },
+                { label: "Akan Naik Pangkat", value: stats?.upcomingPangkat?.toString() || "0", icon: TrendingUp, accent: "bg-primary/10 text-primary" },
+                { label: "Akan KGB", value: stats?.upcomingKGB?.toString() || "0", icon: Wallet, accent: "bg-success/10 text-success" },
+                { label: "Pending Approval", value: stats?.pendingApprovals?.toString() || "0", icon: FileCheck, accent: "bg-warning/10 text-warning" },
               ]
           ).map((s) => (
             <Card key={s.label} className="shadow-card">
@@ -370,19 +385,20 @@ function Dashboard() {
           ))}
         </div>
 
-        {/* Charts & Table */}
+        {/* Charts */}
         {!isPegawai && (
            <div className="grid lg:grid-cols-3 gap-4">
               <Card className="lg:col-span-2 shadow-card">
                 <CardHeader><CardTitle className="text-base">Trend Kenaikan Pangkat & KGB</CardTitle></CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={260}>
-                    <AreaChart data={trendData}>
+                    <AreaChart data={chartTrendData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
                       <XAxis dataKey="bulan" fontSize={11} />
                       <YAxis fontSize={11} />
                       <Tooltip />
-                      <Area type="monotone" dataKey="pangkat" stroke="oklch(0.55 0.16 260)" fill="oklch(0.55 0.16 260)" fillOpacity={0.1} />
+                      <Area name="Pangkat" type="monotone" dataKey="pangkat" stroke="oklch(0.55 0.16 260)" fill="oklch(0.55 0.16 260)" fillOpacity={0.1} />
+                      <Area name="KGB" type="monotone" dataKey="kgb" stroke="oklch(0.7 0.15 155)" fill="oklch(0.7 0.15 155)" fillOpacity={0.1} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -392,10 +408,17 @@ function Dashboard() {
                 <CardContent>
                   <ResponsiveContainer width="100%" height={260}>
                     <PieChart>
-                      <Pie data={golData} dataKey="value" nameKey="name" innerRadius={60} outerRadius={80}>
-                        {golData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                      <Pie 
+                        data={distribution} 
+                        dataKey="count" 
+                        nameKey="golongan_kode" 
+                        innerRadius={60} 
+                        outerRadius={80}
+                      >
+                        {distribution.map((d, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                       </Pie>
                       <Tooltip />
+                      <Legend />
                     </PieChart>
                   </ResponsiveContainer>
                 </CardContent>

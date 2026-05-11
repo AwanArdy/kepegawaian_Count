@@ -1,22 +1,41 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { mockPegawai, nextKgb, daysUntil } from "@/lib/simpeg-data";
+import { type Pegawai, nextKgb, daysUntil } from "@/lib/simpeg-data";
 import { Wallet, Calendar, User as UserIcon, Clock } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import api from "@/services/api";
 
 export const Route = createFileRoute("/kgb")({ component: Page });
 
 function Page() {
   const { user } = useAuth();
   const isPegawai = user?.role === "pegawai";
+  const [data, setData] = useState<Pegawai[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Filter list based on role
-  const rawList = isPegawai ? mockPegawai.filter((p) => p.nip === user?.nip) : mockPegawai;
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await api.get("/pegawai");
+        if (response.data.success) {
+          const rawList = isPegawai 
+            ? response.data.data.filter((p: any) => p.nip === user?.nip) 
+            : response.data.data;
+          setData(rawList);
+        }
+      } catch (error) {
+        console.error("Gagal mengambil data KGB:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [user, isPegawai]);
 
-  const list = rawList
+  const list = data
     .map((p) => ({
       p,
       next: nextKgb(p),
@@ -30,6 +49,8 @@ function Page() {
       month: "long",
       year: "numeric",
     });
+
+  if (loading) return <AppShell title="KGB"><div className="p-8 text-center">Memuat data...</div></AppShell>;
 
   return (
     <AppShell title={isPegawai ? "Jadwal KGB Saya" : "Monitoring Kenaikan Gaji Berkala"}>
@@ -72,7 +93,7 @@ function Page() {
           <CardHeader className="bg-muted/30">
             <CardTitle className="text-base flex items-center gap-2">
               <Clock className="size-4 text-success" />
-              {isPegawai ? "Estimasi KGB Berikutnya" : "Jadwal Monitoring (Otomatis +2 Tahun)"}
+              {isPegawai ? "Estimasi KGB Berikutnya" : "Jadwal Monitoring (Siklus 2 Tahunan Sejak Masuk)"}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -112,7 +133,7 @@ function Page() {
                                 : "bg-muted text-foreground"
                         }
                       >
-                        {days > 0 ? `H-${days}` : `Lewat ${Math.abs(days)} hari`}
+                        {days > 0 ? `H-${days}` : `Hari Ini`}
                       </Badge>
                     </div>
                   </div>
@@ -132,8 +153,8 @@ function Page() {
             <Wallet className="size-5 text-success shrink-0" />
             <p>
               <strong>Informasi:</strong> Kenaikan Gaji Berkala (KGB) diberikan setiap 2 tahun
-              sekali. Sistem akan memberikan notifikasi otomatis ke Admin untuk memproses SK KGB
-              Anda 2 bulan sebelum tanggal jatuh tempo.
+              sekali sejak tanggal masuk Anda. Sistem akan memberikan notifikasi otomatis ke Admin untuk memproses SK KGB
+              Anda sebelum tanggal jatuh tempo.
             </p>
           </div>
         )}

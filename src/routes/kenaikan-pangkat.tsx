@@ -1,22 +1,41 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { mockPegawai, nextPangkat, daysUntil } from "@/lib/simpeg-data";
+import { type Pegawai, nextPangkat, daysUntil } from "@/lib/simpeg-data";
 import { TrendingUp, Calendar, User as UserIcon, Clock } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import api from "@/services/api";
 
 export const Route = createFileRoute("/kenaikan-pangkat")({ component: Page });
 
 function Page() {
   const { user } = useAuth();
   const isPegawai = user?.role === "pegawai";
+  const [data, setData] = useState<Pegawai[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Filter list based on role
-  const rawList = isPegawai ? mockPegawai.filter((p) => p.nip === user?.nip) : mockPegawai;
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await api.get("/pegawai");
+        if (response.data.success) {
+          const rawList = isPegawai 
+            ? response.data.data.filter((p: any) => p.nip === user?.nip) 
+            : response.data.data;
+          setData(rawList);
+        }
+      } catch (error) {
+        console.error("Gagal mengambil data pangkat:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [user, isPegawai]);
 
-  const list = rawList
+  const list = data
     .map((p) => ({
       p,
       next: nextPangkat(p),
@@ -30,6 +49,8 @@ function Page() {
       month: "long",
       year: "numeric",
     });
+
+  if (loading) return <AppShell title="Kenaikan Pangkat"><div className="p-8 text-center">Memuat data...</div></AppShell>;
 
   return (
     <AppShell title={isPegawai ? "Jadwal Pangkat Saya" : "Monitoring Kenaikan Pangkat"}>
@@ -74,7 +95,7 @@ function Page() {
               <Clock className="size-4 text-primary" />
               {isPegawai
                 ? "Estimasi Kenaikan Pangkat Berikutnya"
-                : "Jadwal Monitoring (Otomatis +4 Tahun)"}
+                : "Jadwal Monitoring (Siklus 4 Tahunan Sejak Masuk)"}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -114,7 +135,7 @@ function Page() {
                                 : "bg-muted text-foreground"
                         }
                       >
-                        {days > 0 ? `H-${days}` : `Lewat ${Math.abs(days)} hari`}
+                        {days > 0 ? `H-${days}` : `Hari Ini`}
                       </Badge>
                     </div>
                   </div>
@@ -133,9 +154,8 @@ function Page() {
           <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 text-sm text-muted-foreground flex gap-3">
             <TrendingUp className="size-5 text-primary shrink-0" />
             <p>
-              <strong>Catatan:</strong> Jadwal di atas adalah estimasi sistem berdasarkan TMT
-              Pangkat terakhir Anda (+4 tahun). Pastikan Anda sudah mengunggah dokumen pendukung di
-              menu <strong>Layanan Mandiri</strong> 6 bulan sebelum tanggal tersebut.
+              <strong>Catatan:</strong> Jadwal di atas adalah estimasi sistem berdasarkan siklus 4 tahunan sejak tanggal masuk Anda. Pastikan Anda sudah mengunggah dokumen pendukung di
+              menu <strong>Layanan Mandiri</strong> sebelum tanggal tersebut.
             </p>
           </div>
         )}

@@ -1,18 +1,7 @@
-import { Bell, Search, Sun, Moon, X, User as UserIcon } from "lucide-react";
-import { useAuth } from "@/lib/auth-context";
-import { useTheme } from "@/lib/theme-context";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { useState, useEffect } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { useState, useMemo, useEffect, useRef } from "react";
-import { 
-  getStoredPegawai, 
-  nextPangkat, 
-  nextKgb, 
-  daysUntil, 
-  mockApprovals 
-} from "@/lib/simpeg-data";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,265 +10,194 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Bell, User, LogOut, Settings, HelpCircle, ShieldCheck, Mail, Clock } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { type Pegawai, type Approval, nextPangkat, nextKgb, daysUntil } from "@/lib/simpeg-data";
+import api from "@/services/api";
 
-interface Props {
-  title?: string;
-}
-
-export function Topbar({ title }: Props) {
+export function Topbar() {
   const { user, logout } = useAuth();
-  const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
-  
-  // Search State
-  const [q, setQ] = useState("");
-  const [showResults, setShowResults] = useState(false);
-  const searchRef = useRef<HTMLDivElement>(null);
-  
-  const allPegawai = useMemo(() => getStoredPegawai(), []);
-  const searchResults = useMemo(() => {
-    if (!q.trim()) return [];
-    return allPegawai.filter(p => 
-      p.nama.toLowerCase().includes(q.toLowerCase()) || 
-      p.nip.includes(q)
-    ).slice(0, 5);
-  }, [q, allPegawai]);
-
-  // Notifications Logic
-  const notifications = useMemo(() => {
-    const list = [];
-    const isPegawai = user?.role === "pegawai";
-    
-    // 1. Approvals (for Admin/Pimpinan only)
-    if (!isPegawai) {
-      const pending = mockApprovals.filter(a => a.status === "pending");
-      if (pending.length > 0) {
-        list.push({
-          id: "notif-app",
-          title: `${pending.length} dokumen menunggu approval`,
-          type: "primary",
-          label: "Baru",
-          time: "Sekarang",
-          link: "/approval"
-        });
-      }
-    }
-
-    // 2. Upcoming events (Filtered by Role)
-    const targets = isPegawai 
-      ? allPegawai.filter(p => p.nip === user?.nip)
-      : allPegawai;
-
-    targets.forEach(p => {
-      const dPangkat = daysUntil(nextPangkat(p));
-      const dKgb = daysUntil(nextKgb(p));
-
-      if (dPangkat <= 30 && dPangkat > 0) {
-        list.push({
-          id: `p-${p.id}`,
-          title: isPegawai 
-            ? `Waktunya kenaikan pangkat Anda (H-${dPangkat})`
-            : `Kenaikan pangkat ${p.nama.split(',')[0]} (H-${dPangkat})`,
-          type: dPangkat <= 7 ? "destructive" : "info",
-          label: `H-${dPangkat}`,
-          time: "Hari ini",
-          link: isPegawai ? "/kenaikan-pangkat" : `/pegawai/${p.id}`
-        });
-      }
-      if (dKgb <= 30 && dKgb > 0) {
-        list.push({
-          id: `k-${p.id}`,
-          title: isPegawai
-            ? `Waktunya KGB Anda (H-${dKgb})`
-            : `KGB ${p.nama.split(',')[0]} (H-${dKgb})`,
-          type: dKgb <= 7 ? "destructive" : "warning",
-          label: `H-${dKgb}`,
-          time: "Hari ini",
-          link: isPegawai ? "/kgb" : `/pegawai/${p.id}`
-        });
-      }
-    });
-
-    return list.slice(0, 8);
-  }, [allPegawai, user]);
+  const [notifications, setNotifications] = useState<any[]>([]);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setShowResults(false);
+    const fetchNotifications = async () => {
+      if (!user) return;
+      try {
+        const [pRes, aRes] = await Promise.all([
+          api.get("/pegawai"),
+          api.get("/approvals")
+        ]);
+
+        const pData: Pegawai[] = pRes.data.success ? pRes.data.data : [];
+        const aData: Approval[] = aRes.data.success ? aRes.data.data : [];
+
+        const alerts: any[] = [];
+
+        // 1. Upcoming deadlines (Admin/Pimpinan only)
+        if (user.role !== 'pegawai') {
+          pData.forEach(p => {
+            const dPangkat = daysUntil(nextPangkat(p));
+            if (dPangkat <= 30 && dPangkat > 0) {
+              alerts.push({ id: `p-${p.id}`, title: `Naik Pangkat: ${p.nama}`, desc: `H-${dPangkat} Menuju TMT`, type: 'deadline' });
+            }
+            const dKgb = daysUntil(nextKgb(p));
+            if (dKgb <= 30 && dKgb > 0) {
+              alerts.push({ id: `k-${p.id}`, title: `KGB: ${p.nama}`, desc: `H-${dKgb} Menuju TMT`, type: 'deadline' });
+            }
+          });
+
+          // 2. Pending Approvals
+          aData.filter(a => a.status === 'pending').forEach(a => {
+            alerts.push({ id: `a-${a.id}`, title: 'Pengajuan Baru', desc: `Dari ${(a as any).pegawai?.nama || a.pegawaiNama}`, type: 'approval' });
+          });
+        } else {
+          // Personal alerts for Pegawai
+          const me = pData.find(p => p.nip === user.nip);
+          if (me) {
+             const dP = daysUntil(nextPangkat(me));
+             if (dP <= 30 && dP > 0) alerts.push({ id: 'me-p', title: 'Jadwal Pangkat', desc: `H-${dP} lagi!`, type: 'deadline' });
+             const dK = daysUntil(nextKgb(me));
+             if (dK <= 30 && dK > 0) alerts.push({ id: 'me-k', title: 'Jadwal KGB', desc: `H-${dK} lagi!`, type: 'deadline' });
+          }
+          
+          // My approval updates
+          aData.filter(a => a.status !== 'pending' && a.pegawai_id === (user as any).id).forEach(a => {
+             alerts.push({ id: `my-a-${a.id}`, title: `Pengajuan ${a.type}`, desc: `Status: ${a.status}`, type: 'info' });
+          });
+        }
+
+        setNotifications(alerts.slice(0, 5));
+      } catch (err) {
+        console.error("Gagal memuat notifikasi:", err);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
-  const handleSelect = (id: string) => {
-    navigate({ to: "/pegawai/$id", params: { id } });
-    setQ("");
-    setShowResults(false);
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 60000); // Refresh every minute
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const handleLogout = () => {
+    logout();
+    navigate({ to: "/login" });
   };
 
   return (
-    <header className="h-16 bg-card border-b border-border flex items-center gap-3 px-4 lg:px-6 sticky top-0 z-30">
-      <SidebarTrigger className="-ml-1" />
-      <div className="hidden md:block">
-        <h1 className="text-lg font-semibold text-foreground">{title || "Dashboard"}</h1>
-        <p className="text-xs text-muted-foreground">
-          Selamat datang kembali, {user?.name.split(",")[0]}
-        </p>
-      </div>
-      <div className="flex-1" />
-      
-      {/* Search Section - Hidden for Pegawai */}
-      {user?.role !== "pegawai" && (
-        <div className="hidden md:flex relative" ref={searchRef}>
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <Input 
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              setShowResults(true);
-            }}
-            onFocus={() => setShowResults(true)}
-            placeholder="Cari pegawai, NIP..." 
-            className="pl-9 w-72 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:bg-card transition-all" 
-          />
-          {q && (
-            <button 
-              onClick={() => setQ("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="size-3" />
-            </button>
-          )}
-
-          {showResults && searchResults.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-xl shadow-elevated overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
-              <div className="p-2 border-b border-border bg-muted/30 text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
-                Hasil Pencarian
-              </div>
-              <div className="max-h-80 overflow-y-auto">
-                {searchResults.map(p => (
-                  <button
-                    key={p.id}
-                    onClick={() => handleSelect(p.id)}
-                    className="w-full flex items-center gap-3 p-3 hover:bg-muted transition-colors text-left"
-                  >
-                    <div className="size-8 rounded-full bg-gradient-primary flex items-center justify-center text-white text-[10px] font-bold shrink-0">
-                      {p.nama.charAt(0)}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium truncate">{p.nama}</div>
-                      <div className="text-[10px] text-muted-foreground">{p.nip} • {p.jabatan}</div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 lg:px-6">
+      <div className="flex items-center gap-4">
+        <SidebarTrigger className="lg:hidden" />
+        <div className="hidden lg:block">
+          <h1 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            Sistem Informasi Kepegawaian & Pangkat (SIKAPAS)
+          </h1>
         </div>
-      )}
+      </div>
 
-      <button
-        onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-        className="p-2 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
-      >
-        {theme === "light" ? <Sun className="size-5" /> : <Moon className="size-5" />}
-      </button>
-
-      {/* Notifications Section */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="relative p-2 rounded-lg hover:bg-muted">
-            <Bell className="size-5 text-muted-foreground" />
-            {notifications.length > 0 && (
-              <Badge className="absolute -top-0.5 -right-0.5 size-5 p-0 flex items-center justify-center text-[10px] bg-destructive text-destructive-foreground border-2 border-card">
-                {notifications.length}
-              </Badge>
-            )}
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-80">
-          <DropdownMenuLabel className="flex items-center justify-between">
-            Notifikasi
-            <Badge variant="outline" className="font-normal text-[10px]">{notifications.length} Total</Badge>
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <div className="max-h-96 overflow-y-auto">
-            {notifications.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">
-                Tidak ada notifikasi baru
-              </div>
-            ) : (
-              notifications.map((n) => (
-                <DropdownMenuItem 
-                  key={n.id} 
-                  asChild
-                  className="flex flex-col items-start gap-1 py-3 cursor-pointer"
-                >
-                  <Link to={n.link} className="w-full">
-                    <div className="flex items-center gap-2 w-full">
-                      <Badge className={
-                        n.type === "destructive" ? "bg-destructive text-destructive-foreground" :
-                        n.type === "warning" ? "bg-warning text-warning-foreground" :
-                        n.type === "info" ? "bg-info text-info-foreground" :
-                        "bg-primary text-primary-foreground"
-                      }>
-                        {n.label}
-                      </Badge>
-                      <span className="text-[10px] text-muted-foreground ml-auto">{n.time}</span>
+      <div className="flex items-center gap-2 lg:gap-4">
+        {/* Notifications */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-full hover:bg-muted">
+              <Bell className="h-5 w-5 text-muted-foreground" />
+              {notifications.length > 0 && (
+                <span className="absolute right-2 top-2 flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75"></span>
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-primary"></span>
+                </span>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-80 p-0 shadow-elevated border-border">
+            <DropdownMenuLabel className="p-4 font-bold border-b flex items-center justify-between">
+              Notifikasi
+              {notifications.length > 0 && <Badge variant="secondary" className="text-[10px]">{notifications.length}</Badge>}
+            </DropdownMenuLabel>
+            <div className="max-h-[350px] overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  <Bell className="mx-auto h-8 w-8 opacity-20 mb-2" />
+                  <p className="text-xs">Tidak ada notifikasi baru</p>
+                </div>
+              ) : (
+                notifications.map((n) => (
+                  <DropdownMenuItem key={n.id} className="p-4 focus:bg-muted/50 cursor-pointer border-b last:border-0 border-border/50">
+                    <div className="flex gap-3">
+                      <div className={`mt-0.5 size-8 rounded-lg flex items-center justify-center shrink-0 ${n.type === 'deadline' ? 'bg-warning/10 text-warning' : 'bg-primary/10 text-primary'}`}>
+                        {n.type === 'deadline' ? <Clock className="size-4" /> : <ShieldCheck className="size-4" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">{n.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{n.desc}</p>
+                      </div>
                     </div>
-                    <span className="text-sm font-medium line-clamp-2 mt-1">{n.title}</span>
-                  </Link>
-                </DropdownMenuItem>
-              ))
+                  </DropdownMenuItem>
+                ))
+              )}
+            </div>
+            {notifications.length > 0 && (
+               <div className="p-2 border-t text-center">
+                  <Button variant="ghost" size="sm" className="w-full text-[11px] text-primary" asChild>
+                    <Link to="/reminder">Lihat Semua Reminder</Link>
+                  </Button>
+               </div>
             )}
-          </div>
-          {notifications.length > 0 && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild className="justify-center text-xs text-primary font-medium py-2">
-                <Link to="/reminder">Lihat Semua Reminder</Link>
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-      {/* Profile Section */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="flex items-center gap-2 p-1 pr-3 rounded-full hover:bg-muted transition-colors">
-            <div className="size-8 rounded-full bg-gradient-primary flex items-center justify-center text-white text-sm font-semibold shadow-sm">
-              {user?.name.charAt(0)}
-            </div>
-            <div className="hidden md:block text-left">
-              <div className="text-xs font-semibold leading-tight">
-                {user?.name.split(" ").slice(0, 2).join(" ")}
+        <div className="h-6 w-px bg-border mx-1 hidden sm:block" />
+
+        {/* User Menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="flex items-center gap-2 px-2 hover:bg-muted rounded-full">
+              <div className="h-8 w-8 rounded-full bg-gradient-primary flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                {user?.name.charAt(0)}
               </div>
-              <div className="text-[10px] text-muted-foreground capitalize">{user?.role}</div>
-            </div>
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel className="font-normal">
-            <div className="flex flex-col space-y-1">
-              <p className="text-sm font-medium leading-none">{user?.name}</p>
-              <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
-            </div>
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <Link to="/profile" className="flex items-center w-full">
-              <UserIcon className="mr-2 h-4 w-4" />
-              <span>Profil Saya</span>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
-            Logout
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+              <div className="hidden text-left sm:block">
+                <p className="text-xs font-bold leading-none">{user?.name}</p>
+                <p className="text-[10px] text-muted-foreground mt-1 capitalize leading-none">
+                  {user?.role}
+                </p>
+              </div>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56 mt-1 shadow-elevated border-border">
+            <DropdownMenuLabel className="font-normal p-4">
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-bold leading-none">{user?.name}</p>
+                <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild className="p-3 cursor-pointer focus:bg-primary/5 focus:text-primary">
+              <Link to="/profile" className="flex w-full items-center">
+                <User className="mr-3 h-4 w-4" />
+                <span>Profil Saya</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild className="p-3 cursor-pointer focus:bg-primary/5 focus:text-primary">
+              <Link to="/pengaturan" className="flex w-full items-center">
+                <Settings className="mr-3 h-4 w-4" />
+                <span>Pengaturan</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem className="p-3 cursor-pointer focus:bg-primary/5 focus:text-primary">
+              <HelpCircle className="mr-3 h-4 w-4" />
+              <span>Bantuan</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={handleLogout}
+              className="p-3 cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
+            >
+              <LogOut className="mr-3 h-4 w-4" />
+              <span>Keluar</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </header>
   );
 }

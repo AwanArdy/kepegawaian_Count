@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth-context";
 import { useState } from "react";
-import { updateUserPassword } from "@/lib/simpeg-data";
 import { toast } from "sonner";
 import { Key, User as UserIcon, Mail, ShieldCheck, Eye, EyeOff } from "lucide-react";
+import api from "@/services/api";
 
 export const Route = createFileRoute("/profile")({ component: Page });
 
@@ -17,23 +17,32 @@ function Page() {
   const { user } = useAuth();
   const [passData, setPassData] = useState({ old: "", new: "", confirm: "" });
   const [showPass, setShowPass] = useState({ old: false, new: false, confirm: false });
+  const [loading, setLoading] = useState(false);
 
   if (!user) return null;
 
-  const handlePasswordChange = (e: React.FormEvent) => {
+  const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     if (passData.new !== passData.confirm) {
       toast.error("Konfirmasi password baru tidak cocok");
       return;
     }
     
-    // In a real app we'd verify 'old' password on server
-    const success = updateUserPassword(user.id, passData.new);
-    if (success) {
-      toast.success("Password berhasil diperbarui");
-      setPassData({ old: "", new: "", confirm: "" });
-    } else {
-      toast.error("Gagal memperbarui password");
+    setLoading(true);
+    try {
+      const response = await api.put('/auth/update-password', {
+        oldPassword: passData.old,
+        newPassword: passData.new
+      });
+      
+      if (response.data.success) {
+        toast.success("Password berhasil diperbarui");
+        setPassData({ old: "", new: "", confirm: "" });
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Gagal memperbarui password");
+    } finally {
+      setLoading(false);
     }
   };
   return (
@@ -49,6 +58,14 @@ function Page() {
               {user.role}
             </Badge>
             <p className="text-sm text-muted-foreground mt-2">{user.jabatan}</p>
+            <div className="mt-6 pt-6 border-t text-left space-y-3">
+               <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <UserIcon className="size-4" /> NIP: {user.nip}
+               </div>
+               <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Mail className="size-4" /> {user.email}
+               </div>
+            </div>
           </CardContent>
         </Card>
         <Card className="shadow-card lg:col-span-2">
@@ -58,22 +75,22 @@ function Page() {
           <CardContent className="grid sm:grid-cols-2 gap-4">
             <div>
               <Label>Nama Lengkap</Label>
-              <Input defaultValue={user.name} />
+              <Input defaultValue={user.name} readOnly className="bg-muted/30" />
             </div>
             <div>
               <Label>NIP</Label>
-              <Input defaultValue={user.nip} readOnly />
+              <Input defaultValue={user.nip} readOnly className="bg-muted/30" />
             </div>
             <div className="sm:col-span-2">
               <Label>Email</Label>
-              <Input defaultValue={user.email} type="email" />
+              <Input defaultValue={user.email} readOnly className="bg-muted/30" />
             </div>
             <div className="sm:col-span-2">
               <Label>Jabatan</Label>
-              <Input defaultValue={user.jabatan} />
+              <Input defaultValue={user.jabatan} readOnly className="bg-muted/30" />
             </div>
             <div className="sm:col-span-2">
-              <Button>Simpan Perubahan</Button>
+              <p className="text-xs text-muted-foreground italic">* Untuk mengubah informasi profil, silakan hubungi Admin Kepegawaian.</p>
             </div>
           </CardContent>
         </Card>
@@ -150,8 +167,8 @@ function Page() {
                   </div>
                 </div>
               </div>
-              <Button type="submit" className="shadow-glow">
-                Update Password
+              <Button type="submit" className="shadow-glow" disabled={loading}>
+                {loading ? "Memperbarui..." : "Update Password"}
               </Button>
             </form>
           </CardContent>

@@ -14,7 +14,7 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
       <div className="flex min-h-screen w-full bg-background">
         <AppSidebar />
         <SidebarInset className="flex flex-col min-w-0">
-          <Topbar title={title} />
+          <Topbar />
           <main className="flex-1 p-4 lg:p-6 overflow-x-hidden">{children}</main>
         </SidebarInset>
       </div>

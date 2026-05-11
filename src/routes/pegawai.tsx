@@ -23,17 +23,15 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import {
-  mockPegawai,
   type Pegawai,
-  getStoredPegawai,
-  setStoredPegawai,
-  getStoredUsers,
-  addStoredUser,
   nextPangkat,
   nextKgb,
+  lastPangkat,
+  lastKgb,
   type User,
 } from "@/lib/simpeg-data";
 import { useAuth } from "@/lib/auth-context";
+import api from "@/services/api";
 import {
   Search,
   Plus,
@@ -52,34 +50,23 @@ import {
   Key,
   ShieldCheck as ShieldCheckIcon,
   Clock,
+  Briefcase,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect } from "react";
 
 export const Route = createFileRoute("/pegawai")({ component: PegawaiPage });
 
-const MASTER_GOLONGAN = [
-  "IV/e", "IV/d", "IV/c", "IV/b", "IV/a",
-  "III/d", "III/c", "III/b", "III/a",
-];
-const MASTER_JABATAN = [
-  "Kepala Bagian Umum",
-  "Analis Kepegawaian Ahli Muda",
-  "Pranata Komputer Ahli Pertama",
-  "Bendahara Pengeluaran",
-  "Sekretaris Dinas",
-];
-const MASTER_UNIT = [
-  "Sekretariat Utama",
-  "Biro Keuangan",
-  "Biro Kepegawaian",
-  "Pusat Data dan Informasi",
-  "Inspektorat",
-];
-
 function PegawaiPage() {
   const { user } = useAuth();
-  const [data, setData] = useState<Pegawai[]>(getStoredPegawai());
+  const [data, setData] = useState<Pegawai[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Master Data States
+  const [masterGolongan, setMasterGolongan] = useState<any[]>([]);
+  const [masterJabatan, setMasterJabatan] = useState<any[]>([]);
+  const [masterUnit, setMasterUnit] = useState<any[]>([]);
+
   const [q, setQ] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -89,30 +76,6 @@ function PegawaiPage() {
   const [viewingPegawai, setViewingPegawai] = useState<Pegawai | null>(null);
   const [targetPegawai, setTargetPegawai] = useState<Pegawai | null>(null);
 
-  const [users, setUsers] = useState<Record<string, User>>(getStoredUsers());
-
-  const handleAccountCreate = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!targetPegawai) return;
-    const newUser: User = {
-      id: targetPegawai.nip,
-      name: targetPegawai.nama,
-      nip: targetPegawai.nip,
-      role: "pegawai",
-      email: targetPegawai.email,
-      jabatan: targetPegawai.jabatan,
-    };
-    addStoredUser(newUser);
-    setUsers(getStoredUsers());
-    setAccountOpen(false);
-    toast.success(`Akun berhasil dibuat untuk ${targetPegawai.nama}`);
-  };
-
-  const openAccountModal = (p: Pegawai) => {
-    setTargetPegawai(p);
-    setAccountOpen(true);
-  };
-
   const [filters, setFilters] = useState({
     golongan: "all",
     unit: "all",
@@ -121,9 +84,56 @@ function PegawaiPage() {
 
   const isAdmin = user?.role === "admin";
 
+  const fetchData = async () => {
+    try {
+      const [pegawaiRes, golRes, jabRes, unitRes] = await Promise.all([
+        api.get("/pegawai"),
+        api.get("/master/golongan"),
+        api.get("/master/jabatan"),
+        api.get("/master/unit-kerja")
+      ]);
+
+      if (pegawaiRes.data.success) setData(pegawaiRes.data.data);
+      if (golRes.data.success) setMasterGolongan(golRes.data.data);
+      if (jabRes.data.success) setMasterJabatan(golRes.data.data);
+      if (unitRes.data.success) setMasterUnit(unitRes.data.data);
+
+    } catch (error) {
+      console.error("Gagal mengambil data pegawai:", error);
+    } finally {
+
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    setStoredPegawai(data);
-  }, [data]);
+    fetchData();
+  }, []);
+
+  const handleAccountCreate = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!targetPegawai) return;
+    
+    try {
+      const response = await api.post(`/pegawai/${targetPegawai.id}/create-account`, {
+        role: "pegawai",
+        email: targetPegawai.email,
+      });
+
+      if (response.data.success) {
+        toast.success(`Akun berhasil dibuat untuk ${targetPegawai.nama}`);
+        setAccountOpen(false);
+        fetchData(); // Refresh to show active status
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Gagal membuat akun");
+    }
+  };
+
+  const openAccountModal = (p: Pegawai) => {
+    setTargetPegawai(p);
+    setAccountOpen(true);
+  };
 
   const filtered = data.filter((p) => {
     const matchSearch = [p.nama, p.nip, p.jabatan, p.unitKerja].some((s) =>
@@ -135,48 +145,69 @@ function PegawaiPage() {
     return matchSearch && matchGolongan && matchUnit && matchStatus;
   });
 
-  const handleAdd = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAdd = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
-    const today = new Date().toISOString();
-    const newPegawai: Pegawai = {
-      id: `p${Date.now()}`,
+    const entryDate = f.get("tanggalMasuk") as string;
+    const tmtP = (f.get("tmtPangkat") as string) || lastPangkat(entryDate);
+    const tmtK = (f.get("tmtKgb") as string) || lastKgb(entryDate);
+    
+    const newPegawai = {
       nip: f.get("nip") as string,
       nama: f.get("nama") as string,
-      jabatan: f.get("jabatan") as string,
-      golongan: f.get("golongan") as string,
-      unitKerja: f.get("unit") as string,
+      jabatan_id: f.get("jabatan_id") as string,
+      golongan_id: f.get("golongan_id") as string,
+      unit_kerja_id: f.get("unit_kerja_id") as string,
       email: f.get("email") as string,
       phone: f.get("phone") as string,
-      tanggalMasuk: f.get("tanggalMasuk") as string,
-      tmtPangkat: today,
-      tmtKgb: today,
+      tanggalMasuk: entryDate,
+      tmtPangkat: tmtP,
+      tmtKgb: tmtK,
       status: "aktif",
     };
-    setData((d) => [newPegawai, ...d]);
-    setAddOpen(false);
-    toast.success("Pegawai berhasil ditambahkan");
+
+    try {
+      const response = await api.post("/pegawai", newPegawai);
+      if (response.data.success) {
+        setData((d) => [response.data.data, ...d]);
+        setAddOpen(false);
+        toast.success("Pegawai berhasil ditambahkan");
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Gagal menambah pegawai");
+    }
   };
 
-  const handleEdit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleEdit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!editingPegawai) return;
     const f = new FormData(e.currentTarget);
-    const updated: Pegawai = {
-      ...editingPegawai,
+    const entryDate = f.get("tanggalMasuk") as string;
+    
+    const updated = {
       nip: f.get("nip") as string,
       nama: f.get("nama") as string,
-      jabatan: f.get("jabatan") as string,
-      golongan: f.get("golongan") as string,
-      unitKerja: f.get("unit") as string,
+      jabatan_id: f.get("jabatan_id") as string,
+      golongan_id: f.get("golongan_id") as string,
+      unit_kerja_id: f.get("unit_kerja_id") as string,
       email: f.get("email") as string,
       phone: f.get("phone") as string,
-      tanggalMasuk: f.get("tanggalMasuk") as string,
+      tanggalMasuk: entryDate,
+      tmtPangkat: f.get("tmtPangkat") as string || editingPegawai.tmtPangkat,
+      tmtKgb: f.get("tmtKgb") as string || editingPegawai.tmtKgb,
     };
-    setData((d) => d.map((p) => (p.id === updated.id ? updated : p)));
-    setEditOpen(false);
-    setEditingPegawai(null);
-    toast.success("Data pegawai berhasil diperbarui");
+
+    try {
+      const response = await api.put(`/pegawai/${editingPegawai.id}`, updated);
+      if (response.data.success) {
+        setData((d) => d.map((p) => (p.id === editingPegawai.id ? response.data.data : p)));
+        setEditOpen(false);
+        setEditingPegawai(null);
+        toast.success("Data pegawai berhasil diperbarui");
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Gagal memperbarui data");
+    }
   };
 
   const openEditModal = (p: Pegawai) => {
@@ -189,10 +220,17 @@ function PegawaiPage() {
     setViewOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Apakah Anda yakin ingin menghapus data pegawai ini?")) {
-      setData((d) => d.filter((x) => x.id !== id));
-      toast.success("Pegawai dihapus dari sistem");
+      try {
+        const response = await api.delete(`/pegawai/${id}`);
+        if (response.data.success) {
+          setData((d) => d.filter((x) => x.id !== id));
+          toast.success("Pegawai dihapus dari sistem");
+        }
+      } catch (error) {
+        toast.error("Gagal menghapus data");
+      }
     }
   };
 
@@ -210,6 +248,8 @@ function PegawaiPage() {
 
   const fmt = (iso: string) =>
     new Date(iso).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+
+  if (loading) return <AppShell title="Data Pegawai"><div className="p-8 text-center">Memuat data...</div></AppShell>;
 
   return (
     <AppShell title="Data Pegawai">
@@ -252,7 +292,7 @@ function PegawaiPage() {
                         <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Semua Golongan</SelectItem>
-                          {MASTER_GOLONGAN.map((g) => (<SelectItem key={g} value={g}>{g}</SelectItem>))}
+                          {masterGolongan.map((g) => (<SelectItem key={g.id} value={g.kode}>{g.kode}</SelectItem>))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -298,17 +338,18 @@ function PegawaiPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-3.5 font-mono text-xs">{p.nip}</td>
+                    <td className="px-5 py-3.5 font-mono text-xs text-muted-foreground">{p.nip}</td>
                     <td className="px-5 py-3.5">
                       <div className="flex flex-col">
                         <span className="font-medium text-xs">{getTenure(p.tanggalMasuk)}</span>
-                        <span className="text-[9px] text-muted-foreground">Sejak {new Date(p.tanggalMasuk).getFullYear()}</span>
+                        <span className="text-[9px] text-muted-foreground">Sejak {p.tanggalMasuk ? new Date(p.tanggalMasuk).getFullYear() : '-'}</span>
                       </div>
                     </td>
+
                     <td className="px-5 py-3.5">
                       <div className="flex flex-col gap-1">
                         <Badge variant="outline" className="text-[10px]">{p.golongan}</Badge>
-                        {users[p.nip] && (
+                        {p.hasAccount && (
                           <Badge className="bg-success/10 text-success border-0 text-[8px] h-3 w-fit">Akun Aktif</Badge>
                         )}
                       </div>
@@ -318,6 +359,17 @@ function PegawaiPage() {
                         <Button size="sm" variant="ghost" onClick={() => openViewModal(p)}><Eye className="size-4" /></Button>
                         {isAdmin && (
                           <>
+                            {!p.hasAccount && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-primary hover:bg-primary/10"
+                                title="Buat Akun"
+                                onClick={() => openAccountModal(p)}
+                              >
+                                <UserPlus className="size-4" />
+                              </Button>
+                            )}
                             <Button size="sm" variant="ghost" onClick={() => openEditModal(p)}><Pencil className="size-4" /></Button>
                             <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(p.id)}><Trash2 className="size-4" /></Button>
                           </>
@@ -349,10 +401,20 @@ function PegawaiPage() {
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center gap-2 text-muted-foreground"><Mail className="size-4" />{viewingPegawai.email}</div>
                     <div className="flex items-center gap-2 text-muted-foreground"><Phone className="size-4" />{viewingPegawai.phone}</div>
+                    <div className="flex items-center gap-2 text-muted-foreground"><MapPin className="size-4" />{viewingPegawai.unitKerja}</div>
+                    <div className="flex items-center gap-2 text-muted-foreground"><Briefcase className="size-4" />{viewingPegawai.jabatan}</div>
                     <div className="flex items-center gap-2 text-muted-foreground"><Clock className="size-4" />Masa Kerja: {getTenure(viewingPegawai.tanggalMasuk)}</div>
                   </div>
                 </div>
                 <div className="space-y-3">
+                  <div className="p-4 rounded-xl border border-border bg-muted/20">
+                     <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="text-muted-foreground">TMT Pangkat Terakhir:</div>
+                        <div className="font-mono font-bold text-primary">{viewingPegawai.tmtPangkat?.split('T')[0] || '-'}</div>
+                        <div className="text-muted-foreground">TMT KGB Terakhir:</div>
+                        <div className="font-mono font-bold text-success">{viewingPegawai.tmtKgb?.split('T')[0] || '-'}</div>
+                     </div>
+                  </div>
                   <div className="p-4 rounded-xl border border-primary/20 bg-primary/5">
                     <Label className="text-[10px] font-bold uppercase tracking-wider text-primary">Estimasi Naik Pangkat</Label>
                     <div className="text-sm font-bold flex items-center gap-2 mt-1"><Calendar className="size-4" /> {fmt(nextPangkat(viewingPegawai))}</div>
@@ -372,13 +434,13 @@ function PegawaiPage() {
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>Tambah Pegawai</DialogTitle></DialogHeader>
             <form onSubmit={handleAdd} className="grid grid-cols-2 gap-4 mt-4">
-              <div className="col-span-2 space-y-1.5"><Label>Nama Lengkap</Label><Input name="nama" required /></div>
-              <div><Label>NIP</Label><Input name="nip" required /></div>
+              <div className="col-span-2 space-y-1.5"><Label>Nama Lengkap</Label><Input name="nama" placeholder="Masukkan nama lengkap dengan gelar..." required /></div>
+              <div><Label>NIP</Label><Input name="nip" placeholder="19XXXXXXXXXXXXXXXX" required /></div>
               <div>
                 <Label>Golongan</Label>
-                <Select name="golongan" required>
-                  <SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger>
-                  <SelectContent>{MASTER_GOLONGAN.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
+                <Select name="golongan_id" required>
+                  <SelectTrigger><SelectValue placeholder="Pilih Golongan" /></SelectTrigger>
+                  <SelectContent>{masterGolongan.map(g => <SelectItem key={g.id} value={g.id.toString()}>{g.kode}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="col-span-2 space-y-1.5">
@@ -387,20 +449,20 @@ function PegawaiPage() {
               </div>
               <div className="col-span-2 space-y-1.5">
                 <Label>Jabatan</Label>
-                <Select name="jabatan" required>
-                  <SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger>
-                  <SelectContent>{MASTER_JABATAN.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent>
+                <Select name="jabatan_id" required>
+                  <SelectTrigger><SelectValue placeholder="Pilih Jabatan" /></SelectTrigger>
+                  <SelectContent>{masterJabatan.map(j => <SelectItem key={j.id} value={j.id.toString()}>{j.nama}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="col-span-2 space-y-1.5">
                 <Label>Unit Kerja</Label>
-                <Select name="unit" required>
-                  <SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger>
-                  <SelectContent>{MASTER_UNIT.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+                <Select name="unit_kerja_id" required>
+                  <SelectTrigger><SelectValue placeholder="Pilih Unit Kerja" /></SelectTrigger>
+                  <SelectContent>{masterUnit.map(u => <SelectItem key={u.id} value={u.id.toString()}>{u.nama}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div><Label>Telepon</Label><Input name="phone" required /></div>
-              <div><Label>Email</Label><Input name="email" type="email" required /></div>
+              <div><Label>Telepon</Label><Input name="phone" placeholder="08XXXXXXXXXX" required /></div>
+              <div><Label>Email</Label><Input name="email" type="email" placeholder="nama@sikapas.go.id" required /></div>
               <DialogFooter className="col-span-2 mt-4"><Button type="submit" className="w-full">Simpan Data</Button></DialogFooter>
             </form>
           </DialogContent>
@@ -416,9 +478,9 @@ function PegawaiPage() {
                 <div><Label>NIP</Label><Input name="nip" defaultValue={editingPegawai.nip} required /></div>
                 <div>
                   <Label>Golongan</Label>
-                  <Select name="golongan" defaultValue={editingPegawai.golongan} required>
+                  <Select name="golongan_id" defaultValue={masterGolongan.find(g => g.kode === editingPegawai.golongan)?.id?.toString()} required>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{MASTER_GOLONGAN.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
+                    <SelectContent>{masterGolongan.map(g => <SelectItem key={g.id} value={g.id.toString()}>{g.kode}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="col-span-2 space-y-1.5">
@@ -427,14 +489,67 @@ function PegawaiPage() {
                 </div>
                 <div className="col-span-2 space-y-1.5">
                   <Label>Jabatan</Label>
-                  <Select name="jabatan" defaultValue={editingPegawai.jabatan} required>
+                  <Select name="jabatan_id" defaultValue={masterJabatan.find(j => j.nama === editingPegawai.jabatan)?.id?.toString()} required>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{MASTER_JABATAN.map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent>
+                    <SelectContent>{masterJabatan.map(j => <SelectItem key={j.id} value={j.id.toString()}>{j.nama}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2 space-y-1.5">
+                  <Label>Unit Kerja</Label>
+                  <Select name="unit_kerja_id" defaultValue={masterUnit.find(u => u.nama === editingPegawai.unitKerja)?.id?.toString()} required>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{masterUnit.map(u => <SelectItem key={u.id} value={u.id.toString()}>{u.nama}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div><Label>Telepon</Label><Input name="phone" defaultValue={editingPegawai.phone} required /></div>
                 <div><Label>Email</Label><Input name="email" type="email" defaultValue={editingPegawai.email} required /></div>
                 <DialogFooter className="col-span-2 mt-4"><Button type="submit" className="w-full">Simpan Perubahan</Button></DialogFooter>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Account Modal */}
+        <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <div className="size-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <ShieldCheckIcon className="size-6 text-primary" />
+              </div>
+              <DialogTitle>Buat Akun Pegawai</DialogTitle>
+              <DialogDescription>
+                Buat akun akses sistem untuk <strong>{targetPegawai?.nama}</strong>. NIP akan
+                digunakan sebagai username default.
+              </DialogDescription>
+            </DialogHeader>
+            {targetPegawai && (
+              <form onSubmit={handleAccountCreate} className="space-y-4 mt-4">
+                <div className="space-y-1.5">
+                  <Label>NIP / Username</Label>
+                  <div className="relative">
+                    <UserPlus className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <Input value={targetPegawai.nip} disabled className="pl-10" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Password Default</Label>
+                  <div className="relative">
+                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <Input value="password" disabled className="pl-10" />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Password default adalah "password". Pegawai dapat mengubahnya setelah login.
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-info/5 border border-info/10 text-[11px] text-info-foreground leading-relaxed">
+                  Dengan membuat akun ini, pegawai dapat mengakses dashboard pribadi untuk memantau
+                  progres kenaikan pangkat dan KGB secara mandiri.
+                </div>
+                <DialogFooter className="mt-6">
+                  <Button type="submit" className="w-full shadow-glow">
+                    Konfirmasi Buat Akun
+                  </Button>
+                </DialogFooter>
               </form>
             )}
           </DialogContent>

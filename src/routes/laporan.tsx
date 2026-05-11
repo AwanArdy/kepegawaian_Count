@@ -1,145 +1,135 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, FileBarChart, FileText, FileSpreadsheet } from "lucide-react";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
-import { getStoredPegawai, mockApprovals } from "@/lib/simpeg-data";
-import { generateMonthlyPDF, exportToExcel, generateYearlyAnalysisPDF } from "@/lib/report-utils";
+import { Badge } from "@/components/ui/badge";
+import { type Pegawai, type Approval } from "@/lib/simpeg-data";
+import { Download, FileText, Printer, Filter, PieChart as PieChartIcon } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import api from "@/services/api";
 
 export const Route = createFileRoute("/laporan")({ component: Page });
 
-const data = [
-  { unit: "Sekretariat", pangkat: 8, kgb: 14 },
-  { unit: "Keuangan", pangkat: 5, kgb: 11 },
-  { unit: "IT", pangkat: 6, kgb: 9 },
-  { unit: "Hukum", pangkat: 3, kgb: 7 },
-  { unit: "Diklat", pangkat: 4, kgb: 8 },
-  { unit: "Humas", pangkat: 2, kgb: 5 },
-];
-
 function Page() {
-  const handleGeneratePDF = () => {
-    try {
-      const pegawai = getStoredPegawai();
-      generateMonthlyPDF(pegawai);
-      toast.success("Laporan PDF berhasil diunduh");
-    } catch (error) {
-      toast.error("Gagal membuat laporan PDF");
-    }
+  const [pegawai, setPegawai] = useState<Pegawai[]>([]);
+  const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [reportType, setReportType] = useState("statistik");
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [pRes, aRes] = await Promise.all([
+          api.get("/pegawai"),
+          api.get("/approvals")
+        ]);
+        if (pRes.data.success) setPegawai(pRes.data.data);
+        if (aRes.data.success) setApprovals(aRes.data.data);
+      } catch (error) {
+        console.error("Gagal mengambil data laporan:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const handleExport = () => {
+    toast.success("Laporan sedang di-generate...");
+    setTimeout(() => {
+      toast.info("Laporan berhasil diunduh (Simulasi)");
+    }, 1500);
   };
 
-  const handleExportExcel = () => {
-    try {
-      const pegawai = getStoredPegawai();
-      exportToExcel(pegawai);
-      toast.success("Data Excel berhasil diunduh");
-    } catch (error) {
-      toast.error("Gagal mengekspor data Excel");
-    }
-  };
-
-  const handleYearlyAnalysis = () => {
-    try {
-      generateYearlyAnalysisPDF(mockApprovals);
-      toast.success("Analisis tahunan berhasil diunduh");
-    } catch (error) {
-      toast.error("Gagal membuat analisis tahunan");
-    }
-  };
-
-  const reportCards = [
-    {
-      i: FileText,
-      l: "Laporan PDF Bulanan",
-      d: "Ringkasan kenaikan pangkat & KGB",
-      action: handleGeneratePDF,
-    },
-    {
-      i: FileSpreadsheet,
-      l: "Export Excel",
-      d: "Detail per pegawai & unit kerja",
-      action: handleExportExcel,
-    },
-    {
-      i: FileBarChart,
-      l: "Analisis Tahunan",
-      d: "Trend pengajuan & approval",
-      action: handleYearlyAnalysis,
-    },
-  ];
+  if (loading) return <AppShell title="Laporan & Rekapitulasi"><div className="p-8 text-center">Memuat data...</div></AppShell>;
 
   return (
-    <AppShell title="Laporan">
-      <div className="space-y-5">
-        <div className="grid md:grid-cols-3 gap-4">
-          {reportCards.map((c, i) => (
-            <Card
-              key={i}
-              className="shadow-card hover:shadow-elevated transition-shadow cursor-pointer"
-              onClick={c.action}
-            >
-              <CardContent className="p-5">
-                <div className="size-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                  <c.i className="size-5" />
-                </div>
-                <div className="mt-3 font-semibold">{c.l}</div>
-                <div className="text-xs text-muted-foreground">{c.d}</div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mt-3"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    c.action();
-                  }}
-                >
-                  <Download className="size-4" />
-                  Generate
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+    <AppShell title="Laporan & Rekapitulasi">
+      <div className="space-y-6">
         <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle className="text-base">Distribusi per Unit Kerja</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base font-bold text-primary">Konfigurasi Laporan</CardTitle>
+            <div className="flex gap-2">
+               <Button variant="outline" size="sm" onClick={handleExport}><Printer className="size-4 mr-2" /> Cetak</Button>
+               <Button size="sm" onClick={handleExport} className="shadow-glow"><Download className="size-4 mr-2" /> Export Excel</Button>
+            </div>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={data}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="oklch(0.92 0.01 245)"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="unit"
-                  stroke="oklch(0.5 0.03 250)"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  stroke="oklch(0.5 0.03 250)"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 12,
-                    border: "1px solid oklch(0.92 0.01 245)",
-                    fontSize: 12,
-                  }}
-                />
-                <Bar dataKey="pangkat" fill="oklch(0.55 0.16 260)" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="kgb" fill="oklch(0.7 0.15 155)" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent className="grid md:grid-cols-3 gap-4">
+             <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Jenis Laporan</label>
+                <Select value={reportType} onValueChange={setReportType}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="statistik">Statistik Pegawai</SelectItem>
+                    <SelectItem value="pangkat">Rekap Kenaikan Pangkat</SelectItem>
+                    <SelectItem value="kgb">Rekap KGB</SelectItem>
+                    <SelectItem value="approval">Rekap Approval Dokumen</SelectItem>
+                  </SelectContent>
+                </Select>
+             </div>
+             <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Periode</label>
+                <Select defaultValue="2026">
+                  <SelectTrigger><SelectValue placeholder="Pilih Tahun" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2026">2026 (Tahun Berjalan)</SelectItem>
+                    <SelectItem value="2025">2025</SelectItem>
+                  </SelectContent>
+                </Select>
+             </div>
+             <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Format</label>
+                <Select defaultValue="pdf">
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pdf">PDF (.pdf)</SelectItem>
+                    <SelectItem value="xlsx">Excel (.xlsx)</SelectItem>
+                  </SelectContent>
+                </Select>
+             </div>
           </CardContent>
         </Card>
+
+        <div className="grid md:grid-cols-2 gap-6">
+           <Card className="shadow-card">
+              <CardHeader><CardTitle className="text-base">Ringkasan Statistik</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                 <div className="flex justify-between items-center p-3 rounded-lg bg-muted/30 border border-border">
+                    <span className="text-sm font-medium">Total Pegawai</span>
+                    <Badge variant="secondary" className="text-lg">{pegawai.length}</Badge>
+                 </div>
+                 <div className="flex justify-between items-center p-3 rounded-lg bg-muted/30 border border-border">
+                    <span className="text-sm font-medium">Pengajuan Selesai</span>
+                    <Badge variant="secondary" className="text-lg bg-success/10 text-success">{approvals.filter(a => a.status === 'approved').length}</Badge>
+                 </div>
+                 <div className="flex justify-between items-center p-3 rounded-lg bg-muted/30 border border-border">
+                    <span className="text-sm font-medium">Pengajuan Ditolak</span>
+                    <Badge variant="secondary" className="text-lg bg-destructive/10 text-destructive">{approvals.filter(a => a.status === 'rejected').length}</Badge>
+                 </div>
+              </CardContent>
+           </Card>
+
+           <Card className="shadow-card">
+              <CardHeader><CardTitle className="text-base">Aktivitas Terakhir</CardTitle></CardHeader>
+              <CardContent className="p-0">
+                 <div className="divide-y divide-border">
+                    {approvals.slice(0, 4).map((a: any, i) => (
+                      <div key={i} className="p-4 flex items-center gap-3">
+                         <div className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                            <FileText className="size-4" />
+                         </div>
+                         <div className="flex-1 min-w-0">
+                            <div className="text-xs font-bold truncate">{a.pegawai?.nama || a.pegawaiNama}</div>
+                            <div className="text-[10px] text-muted-foreground">{a.type} • {a.status}</div>
+                         </div>
+                      </div>
+                    ))}
+                 </div>
+              </CardContent>
+           </Card>
+        </div>
       </div>
     </AppShell>
   );

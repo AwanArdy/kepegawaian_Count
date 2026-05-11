@@ -1,32 +1,41 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { getStoredUsers, type User, type Role } from "./simpeg-data";
+import { type User } from "./simpeg-data";
 
 interface AuthCtx {
   user: User | null;
-  login: (role: string) => void;
+  login: (userData: User, token: string) => void;
   logout: () => void;
 }
 
-const Ctx = createContext<AuthCtx>({ user: null, login: () => {}, logout: () => {} });
+const Ctx = createContext<AuthCtx>({ 
+  user: null, 
+  login: () => {}, 
+  logout: () => {} 
+});
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const userId = typeof window !== "undefined" ? localStorage.getItem("simpeg_user_id") : null;
-    const users = getStoredUsers();
-    if (userId && users[userId]) setUser(users[userId]);
+    const storedUser = localStorage.getItem("sikapas_user");
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (e) {
+        localStorage.removeItem("sikapas_user");
+      }
+    }
   }, []);
 
-  const login = (userId: string) => {
-    const users = getStoredUsers();
-    if (users[userId]) {
-      localStorage.setItem("simpeg_user_id", userId);
-      setUser(users[userId]);
-    }
+  const login = (userData: User, token: string) => {
+    localStorage.setItem("sikapas_token", token);
+    localStorage.setItem("sikapas_user", JSON.stringify(userData));
+    setUser(userData);
   };
+
   const logout = () => {
-    localStorage.removeItem("simpeg_user_id");
+    localStorage.removeItem("sikapas_token");
+    localStorage.removeItem("sikapas_user");
     setUser(null);
   };
 

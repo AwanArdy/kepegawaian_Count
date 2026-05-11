@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { mockApprovals, type Approval } from "@/lib/simpeg-data";
+import { Input } from "@/components/ui/input";
+import { type Approval } from "@/lib/simpeg-data";
 import { useAuth } from "@/lib/auth-context";
 import { FileText, Check, X, Upload, Eye, Download, ExternalLink, Minimize2 } from "lucide-react";
 import { toast } from "sonner";
@@ -16,36 +17,59 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import api from "@/services/api";
 
 export const Route = createFileRoute("/approval")({ component: Page });
 
 function Page() {
   const { user } = useAuth();
-  const [list, setList] = useState<Approval[]>(mockApprovals);
+  const [list, setList] = useState<Approval[]>([]);
   const [tab, setTab] = useState<"pending" | "approved" | "rejected">("pending");
   const [selectedApproval, setSelectedApproval] = useState<Approval | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [loading, setLoading] = useState(true);
   const previewRef = useRef<HTMLDivElement>(null);
 
+  const fetchApprovals = async () => {
+    try {
+      const response = await api.get("/approvals");
+      if (response.data.success) {
+        setList(response.data.data);
+      }
+    } catch (error) {
+      console.error("Gagal mengambil data approvals:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchApprovals();
+  }, []);
+
   const filtered = list.filter((a) => a.status === tab);
-  const isPimpinan = user?.role === "pimpinan";
+  const isPimpinan = user?.role === "pimpinan" || user?.role === "admin";
   const isPegawai = user?.role === "pegawai";
 
-  const update = (id: string, status: "approved" | "rejected") => {
-    setList((l) => l.map((a) => (a.id === id ? { ...a, status } : a)));
-    toast.success(status === "approved" ? "Disetujui" : "Ditolak");
-    if (selectedApproval?.id === id) {
-      setSelectedApproval(null);
+  const updateStatus = async (id: string, status: "approved" | "rejected") => {
+    try {
+      const response = await api.put(`/approvals/${id}`, { status });
+      if (response.data.success) {
+        toast.success(status === "approved" ? "Disetujui" : "Ditolak");
+        fetchApprovals(); // Refresh list
+        if (selectedApproval?.id === id) {
+          setSelectedApproval(null);
+        }
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Gagal memproses pengajuan");
     }
   };
 
   const handleDownload = () => {
     if (!selectedApproval) return;
-    toast.promise(new Promise((resolve) => setTimeout(resolve, 1500)), {
-      loading: `Menyiapkan unduhan: ${selectedApproval.dokumen}...`,
-      success: `Dokumen ${selectedApproval.dokumen} berhasil diunduh.`,
-      error: "Gagal mengunduh dokumen.",
-    });
+    const url = `http://localhost:5000${(selectedApproval as any).dokumen_url}`;
+    window.open(url, '_blank');
   };
 
   const toggleFullscreen = () => {
@@ -66,10 +90,11 @@ function Page() {
     }
   };
 
-  // Listen for fullscreen change
   const handleFullscreenChange = () => {
     setIsFullscreen(!!document.fullscreenElement);
   };
+
+  if (loading) return <AppShell title="Approval Dokumen"><div className="p-8 text-center">Memuat data...</div></AppShell>;
 
   return (
     <AppShell title="Approval Dokumen">
@@ -82,9 +107,35 @@ function Page() {
               </div>
               <h3 className="mt-4 font-semibold">Upload Dokumen Pengajuan</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Drag & drop SK, berkas pendukung, atau dokumen KGB
+                Pilih berkas pendukung (PDF/Gambar) untuk pengajuan
               </p>
-              <Button className="mt-4">Pilih File</Button>
+              <Input 
+                type="file" 
+                id="file-upload" 
+                className="hidden" 
+                onChange={async (e: React.ChangeEvent<HTMLInputElement>) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  
+                  const formData = new FormData();
+                  formData.append('dokumen', file);
+                  formData.append('type', 'Lainnya'); // Default type
+                  formData.append('pegawai_id', (user as any).id);
+
+                  try {
+                    const res = await api.post('/approvals', formData, {
+                      headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                    if (res.data.success) {
+                      toast.success("Dokumen berhasil diunggah");
+                      fetchApprovals();
+                    }
+                  } catch (err) {
+                    toast.error("Gagal mengunggah dokumen");
+                  }
+                }}
+              />
+              <Button className="mt-4" onClick={() => document.getElementById('file-upload')?.click()}>Pilih File</Button>
             </CardContent>
           </Card>
         )}
@@ -110,7 +161,7 @@ function Page() {
             {filtered.length === 0 && (
               <p className="text-sm text-muted-foreground py-6 text-center">Tidak ada data.</p>
             )}
-            {filtered.map((a) => (
+            {filtered.map((a: any) => (
               <div key={a.id} className="p-4 rounded-xl bg-muted/30 border border-border">
                 <div className="flex flex-wrap items-start gap-4">
                   <div className="size-10 rounded-lg bg-destructive/10 text-destructive flex items-center justify-center">
@@ -118,12 +169,12 @@ function Page() {
                   </div>
                   <div className="flex-1 min-w-[200px]">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-sm">{a.pegawaiNama}</span>
+                      <span className="font-semibold text-sm">{a.pegawai?.nama || 'Pegawai'}</span>
                       <Badge variant="outline">{a.type}</Badge>
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      📄 {a.dokumen} • Diajukan{" "}
-                      {new Date(a.submittedAt).toLocaleDateString("id-ID")}
+                      📄 {a.dokumen_url?.split('/').pop()} • Diajukan{" "}
+                      {new Date(a.submitted_at).toLocaleDateString("id-ID")}
                     </div>
                     {a.catatan && (
                       <div className="text-xs text-destructive mt-1.5">Catatan: {a.catatan}</div>
@@ -139,7 +190,7 @@ function Page() {
                         <Button
                           size="sm"
                           className="bg-success hover:bg-success/90 text-success-foreground"
-                          onClick={() => update(a.id, "approved")}
+                          onClick={() => updateStatus(a.id, "approved")}
                         >
                           <Check className="size-4" />
                           Approve
@@ -147,7 +198,7 @@ function Page() {
                         <Button
                           size="sm"
                           variant="destructive"
-                          onClick={() => update(a.id, "rejected")}
+                          onClick={() => updateStatus(a.id, "rejected")}
                         >
                           <X className="size-4" />
                           Reject
@@ -173,14 +224,13 @@ function Page() {
       >
         <DialogContent
           className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden"
-          onFullScreenChange={handleFullscreenChange}
         >
           <DialogHeader className="p-4 border-b">
             <div className="flex items-center justify-between pr-8">
               <div>
                 <DialogTitle>{selectedApproval?.type}</DialogTitle>
                 <DialogDescription>
-                  {selectedApproval?.pegawaiNama} • {selectedApproval?.dokumen}
+                  {(selectedApproval as any)?.pegawai?.nama} • {(selectedApproval as any)?.dokumen_url?.split('/').pop()}
                 </DialogDescription>
               </div>
               <div className="flex gap-2">
@@ -203,41 +253,12 @@ function Page() {
             ref={previewRef}
             className="flex-1 bg-muted/50 p-8 flex items-center justify-center overflow-auto scrollbar-hide"
           >
-            {/* Mock Document Preview */}
-            <Card
-              className={`w-full max-w-2xl shadow-lg bg-white p-12 border-none ${isFullscreen ? "min-h-[1000px] my-8" : "min-h-[800px]"}`}
-            >
-              <div className="flex justify-between items-start mb-12">
-                <div className="w-20 h-20 bg-muted rounded-full animate-pulse" />
-                <div className="text-right space-y-2">
-                  <div className="h-4 w-32 bg-muted rounded animate-pulse ml-auto" />
-                  <div className="h-4 w-48 bg-muted rounded animate-pulse ml-auto" />
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div className="h-8 w-3/4 bg-muted rounded animate-pulse mx-auto mb-12" />
-
-                <div className="space-y-4">
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
-                    <div
-                      key={i}
-                      className={`h-4 bg-muted rounded animate-pulse ${i % 3 === 0 ? "w-full" : i % 2 === 0 ? "w-5/6" : "w-4/5"}`}
-                    />
-                  ))}
-                </div>
-
-                <div className="h-4 w-1/2 bg-muted rounded animate-pulse mt-12" />
-
-                <div className="pt-20 flex justify-end">
-                  <div className="text-center space-y-4">
-                    <div className="h-4 w-40 bg-muted rounded animate-pulse" />
-                    <div className="h-16 w-32 bg-muted/30 rounded mx-auto" />
-                    <div className="h-4 w-48 bg-muted rounded animate-pulse" />
-                  </div>
-                </div>
-              </div>
-            </Card>
+             <div className="w-full max-w-2xl bg-white shadow-lg p-12 min-h-[800px] flex flex-col items-center justify-center text-center">
+                <FileText className="size-24 text-muted-foreground mb-4" />
+                <h3 className="text-xl font-bold">Pratinjau Dokumen</h3>
+                <p className="text-muted-foreground mt-2">File: {(selectedApproval as any)?.dokumen_url?.split('/').pop()}</p>
+                <Button className="mt-6" variant="outline" onClick={handleDownload}>Buka Dokumen di Tab Baru</Button>
+             </div>
           </div>
 
           <DialogFooter className="p-4 border-t bg-background">
@@ -249,13 +270,13 @@ function Page() {
                 <>
                   <Button
                     variant="destructive"
-                    onClick={() => update(selectedApproval!.id, "rejected")}
+                    onClick={() => updateStatus(selectedApproval!.id, "rejected")}
                   >
                     <X className="size-4 mr-2" /> Tolak
                   </Button>
                   <Button
                     className="bg-success hover:bg-success/90 text-success-foreground"
-                    onClick={() => update(selectedApproval!.id, "approved")}
+                    onClick={() => updateStatus(selectedApproval!.id, "approved")}
                   >
                     <Check className="size-4 mr-2" /> Setujui Dokumen
                   </Button>
