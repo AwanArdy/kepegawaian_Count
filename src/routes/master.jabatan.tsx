@@ -100,77 +100,85 @@ function MasterJabatan() {
   return (
     <AppShell title="Master Jabatan">
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h2 className="text-xl font-bold tracking-tight">Daftar Jabatan</h2>
             <p className="text-sm text-muted-foreground">
               Kelola data jabatan struktural dan fungsional.
             </p>
           </div>
-          <Button className="shadow-glow" onClick={handleOpenAdd}>
+          <Button className="w-full sm:w-auto shadow-glow" onClick={handleOpenAdd}>
             <Plus className="size-4 mr-2" /> Tambah Jabatan
           </Button>
         </div>
 
-        <Card className="shadow-card">
+        <Card className="shadow-card overflow-hidden">
           <div className="p-4 border-b">
-            <div className="relative max-w-sm">
+            <div className="relative w-full sm:max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
                 placeholder="Cari jabatan..."
-                className="pl-9 bg-muted/50 border-none"
+                className="pl-9 bg-muted/50 border-none w-full"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
           </div>
           <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nama Jabatan</TableHead>
-                  <TableHead>Tipe</TableHead>
-                  <TableHead>Eselon</TableHead>
-                  <TableHead className="text-right">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((j) => (
-                  <TableRow key={j.id}>
-                    <TableCell className="font-medium">{j.nama}</TableCell>
-                    <TableCell>{j.tipe}</TableCell>
-                    <TableCell>{j.eselon}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 text-info hover:text-info hover:bg-info/10"
-                          onClick={() => handleOpenEdit(j)}
-                        >
-                          <Edit2 className="size-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDelete(j.id)}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {filtered.length === 0 && (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                      Tidak ada data ditemukan.
-                    </TableCell>
+                    <TableHead>Nama Jabatan</TableHead>
+                    <TableHead className="hidden sm:table-cell">Tipe</TableHead>
+                    <TableHead className="hidden md:table-cell">Eselon</TableHead>
+                    <TableHead className="text-right">Aksi</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((j) => (
+                    <TableRow key={j.id}>
+                      <TableCell className="font-medium">
+                        <div>{j.nama}</div>
+                        <div className="text-xs text-muted-foreground sm:hidden flex gap-2 mt-1">
+                          <span>{j.tipe}</span>
+                          <span className="md:hidden">• Eselon: {j.eselon}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">{j.tipe}</TableCell>
+                      <TableCell className="hidden md:table-cell">{j.eselon}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1 sm:gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 text-info hover:text-info hover:bg-info/10"
+                            onClick={() => handleOpenEdit(j)}
+                          >
+                            <Edit2 className="size-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDelete(j.id)}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {filtered.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                        Tidak ada data ditemukan.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </div>

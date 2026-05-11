@@ -84,57 +84,64 @@ function MasterGolongan() {
   return (
     <AppShell title="Master Golongan">
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h2 className="text-xl font-bold tracking-tight">Daftar Golongan</h2>
             <p className="text-sm text-muted-foreground">Kelola data pangkat dan golongan ASN.</p>
           </div>
-          <Button className="shadow-glow" onClick={handleOpenAdd}>
+          <Button className="w-full sm:w-auto shadow-glow" onClick={handleOpenAdd}>
             <Plus className="size-4 mr-2" /> Tambah Golongan
           </Button>
         </div>
 
-        <Card className="shadow-card">
+        <Card className="shadow-card overflow-hidden">
           <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[100px]">Kode</TableHead>
-                  <TableHead>Nama Pangkat</TableHead>
-                  <TableHead>Ruang</TableHead>
-                  <TableHead className="text-right">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {list.map((g) => (
-                  <TableRow key={g.id}>
-                    <TableCell className="font-bold">{g.kode}</TableCell>
-                    <TableCell>{g.nama}</TableCell>
-                    <TableCell className="uppercase">{g.ruang}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 text-info hover:text-info hover:bg-info/10"
-                          onClick={() => handleOpenEdit(g)}
-                        >
-                          <Edit2 className="size-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDelete(g.id)}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[80px] sm:w-[100px]">Kode</TableHead>
+                    <TableHead>Nama Pangkat</TableHead>
+                    <TableHead className="hidden md:table-cell">Ruang</TableHead>
+                    <TableHead className="text-right">Aksi</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {list.map((g) => (
+                    <TableRow key={g.id}>
+                      <TableCell className="font-bold">{g.kode}</TableCell>
+                      <TableCell>
+                        <div>{g.nama}</div>
+                        <div className="text-xs text-muted-foreground md:hidden uppercase">
+                          Ruang: {g.ruang}
+                        </div>
+                      </TableCell>
+                      <TableCell className="uppercase hidden md:table-cell">{g.ruang}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1 sm:gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 text-info hover:text-info hover:bg-info/10"
+                            onClick={() => handleOpenEdit(g)}
+                          >
+                            <Edit2 className="size-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDelete(g.id)}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </div>
